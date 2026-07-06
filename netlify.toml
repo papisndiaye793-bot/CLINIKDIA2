@@ -1,0 +1,26 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA fallback — react-router (createBrowserRouter) handles client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# ─── En-têtes de sécurité (ISO/IEC 27002 — 8.23, 8.26) ──────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Force HTTPS pendant 1 an (HSTS) — 8.24/8.21
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    # Empêche l'inclusion du site dans une iframe (clickjacking)
+    X-Frame-Options = "DENY"
+    # Bloque le MIME sniffing
+    X-Content-Type-Options = "nosniff"
+    # Limite les informations de référent envoyées
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # Désactive les API sensibles du navigateur
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    # Politique de sécurité du contenu (anti-XSS) — adaptée à l'app (SPA autonome)
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"

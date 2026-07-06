@@ -1,0 +1,212 @@
+import { Link } from 'react-router-dom';
+import {
+  Users,
+  Activity,
+  CalendarCheck,
+  Wallet,
+  AlertTriangle,
+  TrendingUp,
+  Droplets,
+  PackageX,
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
+import { useStore } from '@/store/useStore';
+import { Card, CardHeader, StatCard, Badge, PageHeader } from '@/components/ui';
+import { fmtMoney, todayISO } from '@/lib/utils';
+import { statutMachine, statutSeance, priseEnChargeLabel } from '@/lib/labels';
+import { useT } from '@/lib/i18n';
+
+const PIE_COLORS = ['#1a5fe0', '#0d9488', '#f59e0b', '#8b5cf6', '#ef4444'];
+
+export default function Dashboard() {
+  const { patients, machines, seances, factures, articlesStock, maintenances, settings } = useStore();
+  const { t, lang } = useT();
+  const locale = lang === 'en' ? 'en-US' : 'fr-FR';
+
+  const today = todayISO();
+  const patientsActifs = patients.filter((p) => p.statut === 'actif').length;
+  const seancesToday = seances.filter((s) => s.date === today);
+  const machinesOp = machines.filter((m) => m.statut === 'operationnel').length;
+  const tauxOccupation = Math.round((seancesToday.length / (machines.length * 3)) * 100);
+
+  const caEncaisse = factures.reduce((a, f) => a + f.montantPaye, 0);
+  const impayes = factures.reduce((a, f) => a + (f.montantTotal * (1 - f.partAssurance / 100) - f.montantPaye), 0);
+
+  const stockAlertes = articlesStock.filter((a) => a.quantite <= a.seuilAlerte);
+  const maintEnCours = maintenances.filter((m) => m.statut !== 'terminee');
+
+  // Activité 14 derniers jours
+  const activite = Array.from({ length: 14 }).map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    const iso = d.toISOString().slice(0, 10);
+    return {
+      jour: d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }),
+      seances: seances.filter((s) => s.date === iso).length,
+    };
+  });
+
+  // Répartition prise en charge
+  const pecData = Object.entries(
+    patients.reduce<Record<string, number>>((acc, p) => {
+      acc[p.priseEnCharge] = (acc[p.priseEnCharge] ?? 0) + 1;
+      return acc;
+    }, {})
+  ).map(([k, v]) => ({ name: priseEnChargeLabel[k as keyof typeof priseEnChargeLabel], value: v }));
+
+  return (
+    <div>
+      <PageHeader
+        title={t('nav.dashboard')}
+        subtitle={new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label={t('dash.patientsActifs')} value={patientsActifs} icon={<Users size={18} />} tone="blue" hint={`${patients.length} ${t('dash.total')}`} />
+        <StatCard label={t('dash.seancesToday')} value={seancesToday.length} icon={<CalendarCheck size={18} />} tone="teal" hint={`${t('dash.tauxOccupation')} ${tauxOccupation}%`} />
+        <StatCard label={t('dash.generateurs')} value={`${machinesOp}/${machines.length}`} icon={<Activity size={18} />} tone="green" hint={`${maintEnCours.length} ${t('dash.enMaintenance')}`} />
+        <StatCard label={t('dash.encaisse')} value={fmtMoney(caEncaisse, settings.devise)} icon={<Wallet size={18} />} tone="purple" hint={`${fmtMoney(impayes, settings.devise)} ${t('dash.enAttente')}`} />
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader title={t('dash.activite')} subtitle={t('dash.activiteSub')} action={<TrendingUp size={18} className="text-emerald-500" />} />
+          <div className="h-72 p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={activite} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1a5fe0" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#1a5fe0" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="jour" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                <Tooltip />
+                <Area type="monotone" dataKey="seances" stroke="#1a5fe0" strokeWidth={2} fill="url(#g1)" name="Séances" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title={t('dash.priseEnCharge')} subtitle={t('dash.priseEnChargeSub')} />
+          <div className="h-72 p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={pecData} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={70} innerRadius={42}>
+                  {pecData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* Alertes */}
+        <Card>
+          <CardHeader title={t('dash.alertes')} subtitle={t('dash.alertesSub')} action={<AlertTriangle size={18} className="text-amber-500" />} />
+          <div className="divide-y divide-slate-100">
+            {maintEnCours.map((m) => {
+              const machine = machines.find((x) => x.id === m.machineId);
+              return (
+                <Link to="/machines" key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                    <Activity size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-slate-700">{machine?.code} — {m.description}</div>
+                    <div className="text-xs text-slate-400">Maintenance {m.type}</div>
+                  </div>
+                </Link>
+              );
+            })}
+            {stockAlertes.slice(0, 4).map((a) => (
+              <Link to="/stock" key={a.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                  <PackageX size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-slate-700">{a.designation}</div>
+                  <div className="text-xs text-slate-400">Stock bas : {a.quantite} (seuil {a.seuilAlerte})</div>
+                </div>
+              </Link>
+            ))}
+            {maintEnCours.length === 0 && stockAlertes.length === 0 && (
+              <div className="px-5 py-8 text-center text-sm text-slate-400">{t('dash.aucuneAlerte')}</div>
+            )}
+          </div>
+        </Card>
+
+        {/* Séances en cours */}
+        <Card className="lg:col-span-2">
+          <CardHeader title={t('dash.seancesDuJour')} subtitle={`${seancesToday.length} ${t('dash.seancesProgrammees')}`} action={<Link to="/planning" className="text-sm font-medium text-brand-600 hover:underline">{t('dash.voirPlanning')}</Link>} />
+          <div className="max-h-72 overflow-y-auto">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-slate-100">
+                {seancesToday.slice(0, 8).map((s) => {
+                  const patient = patients.find((p) => p.id === s.patientId);
+                  const machine = machines.find((m) => m.id === s.machineId);
+                  const st = statutSeance[s.statut];
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="px-5 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
+                            <Droplets size={14} />
+                          </span>
+                          <div>
+                            <div className="font-medium text-slate-700">{patient?.prenom} {patient?.nom}</div>
+                            <div className="text-xs text-slate-400">{machine?.code} · {t('dash.poste')} {machine?.poste}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <Badge tone={st.tone}>{st.label}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+
+      {/* État des générateurs */}
+      <Card className="mt-5">
+        <CardHeader title={t('dash.etatParc')} subtitle={`${machines.length} ${t('dash.postes')}`} />
+        <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4 lg:grid-cols-6">
+          {machines.map((m) => {
+            const st = statutMachine[m.statut];
+            return (
+              <div key={m.id} className="rounded-lg border border-slate-200 p-3 text-center">
+                <div className="text-xs text-slate-400">{t('dash.poste')} {m.poste}</div>
+                <div className="my-1 font-semibold text-slate-700">{m.code}</div>
+                <Badge tone={st.tone}>{st.label}</Badge>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+  );
+}

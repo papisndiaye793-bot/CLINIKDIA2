@@ -1,0 +1,100 @@
+// Schéma de données — ClinikDia API
+// PostgreSQL : chiffrement au repos assuré par l'hébergeur (ISO 27002 8.24).
+// L'autorisation fine peut être renforcée par des politiques RLS au niveau base.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  // Jamais le mot de passe en clair — haché Argon2id (8.24 / 5.17)
+  passwordHash String
+  nom         String
+  prenom      String
+  role        String    @default("utilisateur")
+  active      Boolean   @default(true)
+  // Permissions RBAC granulaires (stockées en JSON sérialisé)
+  permissions String?
+  // MFA TOTP (8.5)
+  mfaEnabled  Boolean   @default(false)
+  mfaSecret   String?
+  lastLogin   DateTime?
+  createdAt   DateTime  @default(now())
+
+  resetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  // On stocke le hash du token, jamais le token (5.17)
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Données de santé (catégorie sensible — ISO 27799)
+model Patient {
+  id                     String   @id @default(cuid())
+  code                   String   @unique
+  nom                    String
+  prenom                 String
+  dateNaissance          String?
+  lieuNaissance          String?
+  sexe                   String?
+  taille                 Float?
+  situationFamiliale     String?
+  telephone              String?
+  adresse                String?
+  contactUrgence         String?
+  groupeSanguin          String?
+  statut                 String   @default("actif")
+  nephrologueId          String?
+  priseEnCharge          String?
+  numAssurance           String?
+  centreOrigine          String?
+  nephropathie           String?
+  dateDebutDialyse       String?
+  datePremiereDialyseCentre String?
+  poidsSec               Float?
+  frequenceHebdo         Int?
+  abord                  String?
+  abordDatePose          String?
+  abordDateConfection    String?
+  abordDatePremierePonction String?
+  dialyseurType          String?
+  dialyseurSurface       String?
+  anticoagulant          String?
+  serologies             String?
+  vaccinationVHB         Boolean?
+  allergies              String?
+  antecedents            String?
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// Journal d'audit inviolable : chaîne de hachage (append-only) — 8.15
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String
+  action    String
+  module    String
+  detail    String
+  // Chaînage : hash = sha256(prevHash + payload). Toute modification rompt la chaîne.
+  prevHash  String
+  hash      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+
+/* ─── Impression (facture / ordonnance) ───────────────────────────────────── */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .facture-sheet,
+  .facture-sheet *,
+  .ordonnance-sheet,
+  .ordonnance-sheet *,
+  .bulletin-sheet,
+  .bulletin-sheet * {
+    visibility: visible !important;
+  }
+  .facture-sheet,
+  .ordonnance-sheet,
+  .bulletin-sheet {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 1.4cm;
+  }
+}

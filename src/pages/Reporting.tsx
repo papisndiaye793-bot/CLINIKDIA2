@@ -1,0 +1,157 @@
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  LineChart,
+  Line,
+} from 'recharts';
+import { Users, Activity, Gauge, HeartPulse } from 'lucide-react';
+import { useStore } from '@/store/useStore';
+import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui';
+import { age } from '@/lib/utils';
+import { useLabels } from '@/lib/labels';
+import { useT } from '@/lib/i18n';
+
+const COLORS = ['#1a5fe0', '#0d9488', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
+
+export default function Reporting() {
+  const { patients, seances, machines } = useStore();
+  const { t } = useT();
+  const L = useLabels();
+
+  const actifs = patients.filter((p) => p.statut === 'actif');
+
+  // Pyramide d'âge
+  const tranches = ['<30', '30-44', '45-59', '60-74', '≥75'];
+  const ageData = tranches.map((t) => ({ tranche: t, Hommes: 0, Femmes: 0 }));
+  actifs.forEach((p) => {
+    const a = age(p.dateNaissance) as number;
+    const idx = a < 30 ? 0 : a < 45 ? 1 : a < 60 ? 2 : a < 75 ? 3 : 4;
+    if (p.sexe === 'M') ageData[idx].Hommes++;
+    else ageData[idx].Femmes++;
+  });
+
+  // Répartition abord vasculaire
+  const abordData = Object.entries(
+    actifs.reduce<Record<string, number>>((acc, p) => {
+      acc[p.abord] = (acc[p.abord] ?? 0) + 1;
+      return acc;
+    }, {})
+  ).map(([k, v]) => ({ name: L.abordLabel[k as keyof typeof L.abordLabel], value: v }));
+
+  // Néphropathies
+  const nephroData = Object.entries(
+    actifs.reduce<Record<string, number>>((acc, p) => {
+      acc[p.nephropathie] = (acc[p.nephropathie] ?? 0) + 1;
+      return acc;
+    }, {})
+  )
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  // Kt/V moyen sur 14 jours
+  const terminées = seances.filter((s) => s.statut === 'terminee' && s.ktv);
+  const ktvMoyen = terminées.length ? (terminées.reduce((a, s) => a + (s.ktv ?? 0), 0) / terminées.length).toFixed(2) : '—';
+  const ktvCible = terminées.length ? Math.round((terminées.filter((s) => (s.ktv ?? 0) >= 1.2).length / terminées.length) * 100) : 0;
+
+  // Séances / semaine (4 dernières semaines)
+  const semaines = Array.from({ length: 4 }).map((_, i) => {
+    const start = new Date();
+    start.setDate(start.getDate() - (3 - i) * 7 - 6);
+    const end = new Date();
+    end.setDate(end.getDate() - (3 - i) * 7);
+    const s = start.toISOString().slice(0, 10);
+    const e = end.toISOString().slice(0, 10);
+    return {
+      semaine: `S-${3 - i}`,
+      seances: seances.filter((x) => x.date >= s && x.date <= e).length,
+    };
+  });
+
+  return (
+    <div>
+      <PageHeader title={t('rp.title')} subtitle={t('rp.subtitle')} />
+
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label={t('rp.activeFile')} value={actifs.length} icon={<Users size={18} />} tone="blue" />
+        <StatCard label={t('rp.sessionsDone')} value={terminées.length} icon={<Activity size={18} />} tone="teal" />
+        <StatCard label={t('rp.ktvAvg')} value={ktvMoyen} icon={<Gauge size={18} />} tone="green" hint="≥ 1,2" />
+        <StatCard label={t('rp.atTarget')} value={`${ktvCible}%`} icon={<HeartPulse size={18} />} tone="purple" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Card>
+          <CardHeader title={t('rp.agePyramid')} subtitle={t('rp.ageSub')} />
+          <div className="h-72 p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={ageData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="tranche" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="Hommes" name={t('rp.men')} fill="#1a5fe0" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Femmes" name={t('rp.women')} fill="#0d9488" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title={t('rp.accessTitle')} subtitle={t('rp.accessSub')} />
+          <div className="h-72 p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={abordData} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={75}>
+                  {abordData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title={t('rp.nephropathies')} subtitle={t('rp.nephropathiesSub')} />
+          <div className="h-72 p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart layout="vertical" data={nephroData} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 10, fill: '#64748b' }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Patients" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title={t('rp.volume')} subtitle={t('rp.volumeSub')} />
+          <div className="h-72 p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={semaines} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="semaine" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="seances" stroke="#1a5fe0" strokeWidth={2} dot={{ r: 4 }} name={t('arch.seances')} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      <p className="mt-4 text-xs text-slate-400">{machines.length} {t('ma.subtitle').replace('{n}', '').trim()}</p>
+    </div>
+  );
+}
