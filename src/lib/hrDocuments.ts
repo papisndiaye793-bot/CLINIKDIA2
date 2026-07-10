@@ -36,27 +36,36 @@ export type DocModele = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const civilite = (s: Staff) => (s.role === 'nephrologue' ? 'le Docteur' : 'M./Mme');
+// Les valeurs « à remplir » (données fusionnées) sont encadrées par `**…**`.
+// Ce balisage (style markdown) est rendu en gras dans l'aperçu et le PDF, et
+// reste éditable par l'utilisateur dans le champ « corps ».
+const B = (x: string | number) => `**${x}**`;
 const nomComplet = (s: Staff) => `${s.prenom} ${s.nom}`;
+const nomB = (s: Staff) => B(nomComplet(s));
 const posteDefaut = (s: Staff) => s.specialite || roleLabel[s.role].label;
-const dateFr = (iso?: string) => (iso ? fmtDateLong(iso) : '……………………');
+/** Date en clair, en gras (valeur à remplir). */
+const dateFr = (iso?: string) => B(iso ? fmtDateLong(iso) : '……………………');
+/** Valeur brute d'un champ (pour la logique et le parsing). */
 const val = (ctx: DocCtx, k: string) => (ctx.v[k] ?? '').trim();
+/** Valeur d'un champ pour affichage, en gras, avec repli. */
+const vb = (ctx: DocCtx, k: string, repli = '……………………') => B(val(ctx, k) || repli);
 const money = (ctx: DocCtx, n: string) => {
   const x = Number(n);
-  if (!x || isNaN(x)) return '……………………';
-  return `${fmtMoney(x, ctx.c.devise)} (${montantEnLettres(x, ctx.c.devise === 'FCFA' ? 'francs CFA' : ctx.c.devise)})`;
+  if (!x || isNaN(x)) return B('……………………');
+  return B(`${fmtMoney(x, ctx.c.devise)} (${montantEnLettres(x, ctx.c.devise === 'FCFA' ? 'francs CFA' : ctx.c.devise)})`);
 };
 
 /** Bloc « Entre les soussignés » commun aux contrats. */
 function enTeteContrat(ctx: DocCtx): string {
   const { c, s } = ctx;
-  const rc = c.registreCommerce ? `, immatriculée au Registre du Commerce sous le n° ${c.registreCommerce}` : '';
-  const ninea = c.ninea ? `, NINEA ${c.ninea}` : '';
+  const rc = c.registreCommerce ? `, immatriculée au Registre du Commerce sous le n° ${B(c.registreCommerce)}` : '';
+  const ninea = c.ninea ? `, NINEA ${B(c.ninea)}` : '';
   return (
 `Entre les soussignés :
 
-${c.nom}, établissement de santé privé sis à ${c.adresse}${ninea}${rc}, représenté(e) par ${val(ctx, 'signataire') || 'la Direction'}, agissant en qualité de ${val(ctx, 'qualiteSignataire') || 'Directeur/Directrice'}, ci-après désigné(e) « l'Employeur », d'une part,
+${B(c.nom)}, établissement de santé privé sis à ${B(c.adresse)}${ninea}${rc}, représenté(e) par ${vb(ctx, 'signataire', 'la Direction')}, agissant en qualité de ${vb(ctx, 'qualiteSignataire', 'Directeur/Directrice')}, ci-après désigné(e) « l'Employeur », d'une part,
 
-Et ${civilite(s)} ${nomComplet(s)}, né(e) le ${dateFr(s.dateNaissance)}${s.adresse ? `, demeurant à ${s.adresse}` : ''}${s.telephone ? `, téléphone ${s.telephone}` : ''}, ci-après désigné(e) « le/la Salarié(e) », d'autre part,
+Et ${civilite(s)} ${nomB(s)}, né(e) le ${dateFr(s.dateNaissance)}${s.adresse ? `, demeurant à ${B(s.adresse)}` : ''}${s.telephone ? `, téléphone ${B(s.telephone)}` : ''}, ci-après désigné(e) « le/la Salarié(e) », d'autre part,
 
 Il a été arrêté et convenu ce qui suit :`
   );
@@ -69,14 +78,14 @@ function articleClassification(ctx: DocCtx, num: number): string {
   const statut = val(ctx, 'statutPro') || (ctx.s.cadre ? 'Cadre' : 'Non-cadre');
   const cat = val(ctx, 'categorie');
   const catPhrase = cat
-    ? `Il/elle est classé(e) dans la catégorie professionnelle « ${cat} »`
+    ? `Il/elle est classé(e) dans la catégorie professionnelle « ${B(cat)} »`
     : `Il/elle est classé(e) dans la catégorie professionnelle correspondant à sa qualification`;
   const cadrePhrase = estCadre(ctx)
     ? ` En sa qualité de cadre, il/elle relève du régime de retraite complémentaire des cadres de l'IPRES et est soumis(e) aux obligations particulières attachées à ce statut (disponibilité, confidentialité renforcée, devoir de loyauté).`
     : '';
   return (
 `Article ${num} — Classification et statut
-Le/la Salarié(e) est engagé(e) sous le statut de ${statut}. ${catPhrase} de la Convention collective nationale interprofessionnelle (CCNI) et de la grille de classification applicable à l'établissement.${cadrePhrase}`
+Le/la Salarié(e) est engagé(e) sous le statut de ${B(statut)}. ${catPhrase} de la Convention collective nationale interprofessionnelle (CCNI) et de la grille de classification applicable à l'établissement.${cadrePhrase}`
   );
 }
 
@@ -102,7 +111,7 @@ La rupture du présent contrat obéit aux dispositions du Code du travail du Sé
 Article ${dernierArticle + 4} — Droit applicable et différends
 Le présent contrat est régi par le droit sénégalais. Tout différend relatif à sa formation, son exécution ou sa rupture relève, à défaut de règlement amiable, de la compétence de l'Inspection du Travail et, le cas échéant, du Tribunal du Travail territorialement compétent.
 
-Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}, en deux (2) exemplaires originaux.`
+Fait à ${vb(ctx, 'lieu', 'Dakar')}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}, en deux (2) exemplaires originaux.`
   );
 }
 
@@ -140,21 +149,21 @@ export const DOC_MODELES: DocModele[] = [
 `${enTeteContrat(ctx)}
 
 Article 1 — Engagement
-L'Employeur engage ${civilite(ctx.s)} ${nomComplet(ctx.s)} par contrat de travail à durée indéterminée, à compter du ${dateFr(val(ctx, 'dateDebut'))}.
+L'Employeur engage ${civilite(ctx.s)} ${nomB(ctx.s)} par contrat de travail à durée indéterminée, à compter du ${dateFr(val(ctx, 'dateDebut'))}.
 
 Article 2 — Fonctions
-Le/la Salarié(e) est engagé(e) en qualité de ${val(ctx, 'poste') || posteDefaut(ctx.s)}. Il/elle exercera ses fonctions sous l'autorité de la Direction et pourra se voir confier toute tâche connexe correspondant à sa qualification.
+Le/la Salarié(e) est engagé(e) en qualité de ${B(val(ctx, 'poste') || posteDefaut(ctx.s))}. Il/elle exercera ses fonctions sous l'autorité de la Direction et pourra se voir confier toute tâche connexe correspondant à sa qualification.
 
 ${articleClassification(ctx, 3)}
 
 Article 4 — Période d'essai
-Le présent contrat ne devient définitif qu'à l'issue d'une période d'essai de ${val(ctx, 'periodeEssai') || 'trois (3) mois'}, durant laquelle chacune des parties peut y mettre fin sans préavis ni indemnité, conformément au Code du travail.
+Le présent contrat ne devient définitif qu'à l'issue d'une période d'essai de ${vb(ctx, 'periodeEssai', 'trois (3) mois')}, durant laquelle chacune des parties peut y mettre fin sans préavis ni indemnité, conformément au Code du travail.
 
 Article 5 — Rémunération
-En contrepartie de son travail, le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, payable à terme échu, sous déduction des cotisations sociales et fiscales en vigueur. À ce salaire de base s'ajoutent, le cas échéant, ${val(ctx, 'primes') || 'les primes et indemnités prévues par la CCNI'}.
+En contrepartie de son travail, le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, payable à terme échu, sous déduction des cotisations sociales et fiscales en vigueur. À ce salaire de base s'ajoutent, le cas échéant, ${vb(ctx, 'primes', 'les primes et indemnités prévues par la CCNI')}.
 
 Article 6 — Lieu et durée du travail
-Le/la Salarié(e) exercera ses fonctions à ${val(ctx, 'lieuTravail') || ctx.c.adresse}, pour une durée hebdomadaire de ${val(ctx, 'horaire') || '40 heures'}, selon les plannings établis par l'Employeur. Les heures effectuées au-delà de la durée légale ouvrent droit à majoration dans les conditions prévues par la réglementation.
+Le/la Salarié(e) exercera ses fonctions à ${B(val(ctx, 'lieuTravail') || ctx.c.adresse)}, pour une durée hebdomadaire de ${vb(ctx, 'horaire', '40 heures')}, selon les plannings établis par l'Employeur. Les heures effectuées au-delà de la durée légale ouvrent droit à majoration dans les conditions prévues par la réglementation.
 
 Article 7 — Congés payés
 Le/la Salarié(e) bénéficie des congés payés dans les conditions fixées par le Code du travail, soit deux (2) jours ouvrables par mois de service effectif, majorés le cas échéant en fonction de l'ancienneté et des charges de famille.
@@ -183,21 +192,21 @@ ${articlesCommuns(ctx, 8)}`
 `${enTeteContrat(ctx)}
 
 Article 1 — Objet et durée
-L'Employeur engage ${civilite(ctx.s)} ${nomComplet(ctx.s)} par contrat de travail à durée déterminée, pour un motif de ${val(ctx, 'motif') || "surcroît temporaire d'activité"}, du ${dateFr(val(ctx, 'dateDebut'))} au ${dateFr(val(ctx, 'dateFin'))} inclus.
+L'Employeur engage ${civilite(ctx.s)} ${nomB(ctx.s)} par contrat de travail à durée déterminée, pour un motif de ${vb(ctx, 'motif', "surcroît temporaire d'activité")}, du ${dateFr(val(ctx, 'dateDebut'))} au ${dateFr(val(ctx, 'dateFin'))} inclus.
 
 Article 2 — Fonctions
-Le/la Salarié(e) est engagé(e) en qualité de ${val(ctx, 'poste') || posteDefaut(ctx.s)}, sous l'autorité de la Direction.
+Le/la Salarié(e) est engagé(e) en qualité de ${B(val(ctx, 'poste') || posteDefaut(ctx.s))}, sous l'autorité de la Direction.
 
 ${articleClassification(ctx, 3)}
 
 Article 4 — Période d'essai
-Le présent contrat comporte une période d'essai de ${val(ctx, 'periodeEssai') || 'un (1) mois'}, durant laquelle chacune des parties peut y mettre fin sans préavis ni indemnité.
+Le présent contrat comporte une période d'essai de ${vb(ctx, 'periodeEssai', 'un (1) mois')}, durant laquelle chacune des parties peut y mettre fin sans préavis ni indemnité.
 
 Article 5 — Rémunération
-Le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, sous déduction des cotisations sociales et fiscales en vigueur, outre ${val(ctx, 'primes') || 'les indemnités prévues par la CCNI'}.
+Le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, sous déduction des cotisations sociales et fiscales en vigueur, outre ${vb(ctx, 'primes', 'les indemnités prévues par la CCNI')}.
 
 Article 6 — Lieu de travail
-Le/la Salarié(e) exercera ses fonctions à ${val(ctx, 'lieuTravail') || ctx.c.adresse}, selon les plannings établis par l'Employeur.
+Le/la Salarié(e) exercera ses fonctions à ${B(val(ctx, 'lieuTravail') || ctx.c.adresse)}, selon les plannings établis par l'Employeur.
 
 Article 7 — Congés payés
 Le/la Salarié(e) bénéficie des congés payés au prorata de son temps de présence, conformément au Code du travail.
@@ -229,14 +238,14 @@ ${articlesCommuns(ctx, 9)}`
     build: (ctx) => (
 `Entre les soussignés :
 
-${ctx.c.nom}, sis à ${ctx.c.adresse}${ctx.c.ninea ? `, NINEA ${ctx.c.ninea}` : ''}${ctx.c.registreCommerce ? `, RC ${ctx.c.registreCommerce}` : ''}, représenté(e) par ${val(ctx, 'signataire') || 'la Direction'}, en qualité de ${val(ctx, 'qualiteSignataire') || 'Directeur/Directrice'}, ci-après désigné(e) « le Donneur d'ordre », d'une part,
+${B(ctx.c.nom)}, sis à ${B(ctx.c.adresse)}${ctx.c.ninea ? `, NINEA ${B(ctx.c.ninea)}` : ''}${ctx.c.registreCommerce ? `, RC ${B(ctx.c.registreCommerce)}` : ''}, représenté(e) par ${vb(ctx, 'signataire', 'la Direction')}, en qualité de ${vb(ctx, 'qualiteSignataire', 'Directeur/Directrice')}, ci-après désigné(e) « le Donneur d'ordre », d'une part,
 
-Et ${civilite(ctx.s)} ${nomComplet(ctx.s)}${ctx.s.adresse ? `, demeurant à ${ctx.s.adresse}` : ''}${ctx.s.telephone ? `, téléphone ${ctx.s.telephone}` : ''}, agissant en qualité de prestataire indépendant, ci-après désigné(e) « le Prestataire », d'autre part,
+Et ${civilite(ctx.s)} ${nomB(ctx.s)}${ctx.s.adresse ? `, demeurant à ${B(ctx.s.adresse)}` : ''}${ctx.s.telephone ? `, téléphone ${B(ctx.s.telephone)}` : ''}, agissant en qualité de prestataire indépendant, ci-après désigné(e) « le Prestataire », d'autre part,
 
 Il a été convenu ce qui suit :
 
 Article 1 — Objet
-Le Prestataire s'engage à réaliser, au profit du Donneur d'ordre, la prestation suivante : ${val(ctx, 'objet') || posteDefaut(ctx.s)}.
+Le Prestataire s'engage à réaliser, au profit du Donneur d'ordre, la prestation suivante : ${B(val(ctx, 'objet') || posteDefaut(ctx.s))}.
 
 Article 2 — Nature juridique et indépendance
 Le présent contrat est un contrat de prestation de service régi par le droit des obligations. Il ne crée aucun lien de subordination ni contrat de travail entre les parties. Le Prestataire exerce en toute indépendance, organise librement ses moyens et demeure seul responsable de ses obligations fiscales et sociales.
@@ -245,7 +254,7 @@ Article 3 — Durée
 La prestation est réalisée du ${dateFr(val(ctx, 'dateDebut'))}${val(ctx, 'dateFin') ? ` au ${dateFr(val(ctx, 'dateFin'))}` : ', pour la durée nécessaire à sa bonne exécution'}.
 
 Article 4 — Honoraires et modalités de paiement
-En rémunération de sa prestation, le Prestataire percevra des honoraires de ${money(ctx, val(ctx, 'honoraires'))}, payables selon une périodicité ${val(ctx, 'periodicite') || 'mensuelle, sur présentation de facture'}. Les retenues fiscales applicables (notamment la retenue à la source sur les prestations, le cas échéant) seront opérées conformément à la réglementation.
+En rémunération de sa prestation, le Prestataire percevra des honoraires de ${money(ctx, val(ctx, 'honoraires'))}, payables selon une périodicité ${vb(ctx, 'periodicite', 'mensuelle, sur présentation de facture')}. Les retenues fiscales applicables (notamment la retenue à la source sur les prestations, le cas échéant) seront opérées conformément à la réglementation.
 
 Article 5 — Obligations du Prestataire
 Le Prestataire s'engage à exécuter sa mission avec diligence et professionnalisme, dans le respect des règles de l'art, de la confidentialité et du secret médical, ainsi que des consignes d'hygiène et de sécurité du site.
@@ -259,7 +268,7 @@ Chacune des parties peut résilier le présent contrat moyennant un préavis éc
 Article 8 — Droit applicable et différends
 Le présent contrat est régi par le droit sénégalais. Tout différend sera soumis, à défaut de règlement amiable, aux juridictions compétentes de Dakar.
 
-Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}, en deux (2) exemplaires originaux.`
+Fait à ${vb(ctx, 'lieu', 'Dakar')}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}, en deux (2) exemplaires originaux.`
     ),
   },
   {
@@ -273,15 +282,15 @@ Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || c
       ...champsSignature,
     ],
     build: (ctx) => (
-`Je soussigné(e), ${val(ctx, 'signataire') || 'la Direction'}, agissant en qualité de ${val(ctx, 'qualiteSignataire') || 'Directeur/Directrice'} de ${ctx.c.nom}, atteste que :
+`Je soussigné(e), ${vb(ctx, 'signataire', 'la Direction')}, agissant en qualité de ${vb(ctx, 'qualiteSignataire', 'Directeur/Directrice')} de ${B(ctx.c.nom)}, atteste que :
 
-${civilite(ctx.s)} ${nomComplet(ctx.s)}${ctx.s.code ? ` (matricule ${ctx.s.code})` : ''}, né(e) le ${dateFr(ctx.s.dateNaissance)}, est employé(e) au sein de notre établissement en qualité de ${val(ctx, 'poste') || posteDefaut(ctx.s)}, depuis le ${dateFr(val(ctx, 'depuis'))}.
+${civilite(ctx.s)} ${nomB(ctx.s)}${ctx.s.code ? ` (matricule ${B(ctx.s.code)})` : ''}, né(e) le ${dateFr(ctx.s.dateNaissance)}, est employé(e) au sein de notre établissement en qualité de ${B(val(ctx, 'poste') || posteDefaut(ctx.s))}, depuis le ${dateFr(val(ctx, 'depuis'))}.
 
 L'intéressé(e) fait toujours partie de nos effectifs à ce jour.
 
-La présente attestation est délivrée à l'intéressé(e) pour ${val(ctx, 'usage') || 'servir et valoir ce que de droit'}.
+La présente attestation est délivrée à l'intéressé(e) pour ${vb(ctx, 'usage', 'servir et valoir ce que de droit')}.
 
-Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
+Fait à ${vb(ctx, 'lieu', 'Dakar')}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
     ),
   },
   {
@@ -295,15 +304,15 @@ Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || c
       ...champsSignature,
     ],
     build: (ctx) => (
-`Je soussigné(e), ${val(ctx, 'signataire') || 'la Direction'}, ${val(ctx, 'qualiteSignataire') || 'Directeur/Directrice'} de ${ctx.c.nom}, sis à ${ctx.c.adresse}, certifie que :
+`Je soussigné(e), ${vb(ctx, 'signataire', 'la Direction')}, ${vb(ctx, 'qualiteSignataire', 'Directeur/Directrice')} de ${B(ctx.c.nom)}, sis à ${B(ctx.c.adresse)}, certifie que :
 
-${civilite(ctx.s)} ${nomComplet(ctx.s)}, né(e) le ${dateFr(ctx.s.dateNaissance)}, a été employé(e) dans notre établissement du ${dateFr(val(ctx, 'dateDebut'))} au ${dateFr(val(ctx, 'dateFin'))}, en qualité de ${val(ctx, 'poste') || posteDefaut(ctx.s)}.
+${civilite(ctx.s)} ${nomB(ctx.s)}, né(e) le ${dateFr(ctx.s.dateNaissance)}, a été employé(e) dans notre établissement du ${dateFr(val(ctx, 'dateDebut'))} au ${dateFr(val(ctx, 'dateFin'))}, en qualité de ${B(val(ctx, 'poste') || posteDefaut(ctx.s))}.
 
 Conformément à l'article L.63 du Code du travail, le/la Salarié(e) quitte l'établissement libre de tout engagement.
 
 En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.
 
-Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
+Fait à ${vb(ctx, 'lieu', 'Dakar')}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
     ),
   },
   {
@@ -318,15 +327,15 @@ Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || c
       ...champsSignature,
     ],
     build: (ctx) => (
-`Je soussigné(e), ${val(ctx, 'signataire') || 'la Direction'}, ${val(ctx, 'qualiteSignataire') || 'Directeur/Directrice'} de ${ctx.c.nom}, atteste que :
+`Je soussigné(e), ${vb(ctx, 'signataire', 'la Direction')}, ${vb(ctx, 'qualiteSignataire', 'Directeur/Directrice')} de ${B(ctx.c.nom)}, atteste que :
 
-${civilite(ctx.s)} ${nomComplet(ctx.s)}${ctx.s.code ? ` (matricule ${ctx.s.code})` : ''} est employé(e) dans notre établissement depuis le ${dateFr(val(ctx, 'depuis'))} en qualité de ${val(ctx, 'poste') || posteDefaut(ctx.s)}.
+${civilite(ctx.s)} ${nomB(ctx.s)}${ctx.s.code ? ` (matricule ${B(ctx.s.code)})` : ''} est employé(e) dans notre établissement depuis le ${dateFr(val(ctx, 'depuis'))} en qualité de ${B(val(ctx, 'poste') || posteDefaut(ctx.s))}.
 
 À ce titre, il/elle perçoit une rémunération brute mensuelle de ${money(ctx, val(ctx, 'salaire'))}.
 
-La présente attestation est établie à l'attention de ${val(ctx, 'destinataire') || "l'organisme concerné"}, pour servir et valoir ce que de droit.
+La présente attestation est établie à l'attention de ${vb(ctx, 'destinataire', "l'organisme concerné")}, pour servir et valoir ce que de droit.
 
-Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
+Fait à ${vb(ctx, 'lieu', 'Dakar')}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
     ),
   },
   {
@@ -340,15 +349,15 @@ Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || c
       ...champsSignature,
     ],
     build: (ctx) => (
-`Je soussigné(e), ${val(ctx, 'signataire') || 'la Direction'}, ${val(ctx, 'qualiteSignataire') || 'Directeur/Directrice'} de ${ctx.c.nom}, autorise :
+`Je soussigné(e), ${vb(ctx, 'signataire', 'la Direction')}, ${vb(ctx, 'qualiteSignataire', 'Directeur/Directrice')} de ${B(ctx.c.nom)}, autorise :
 
-${civilite(ctx.s)} ${nomComplet(ctx.s)}${ctx.s.code ? ` (matricule ${ctx.s.code})` : ''}, ${val(ctx, 'poste') || posteDefaut(ctx.s)}, à s'absenter de son poste pour le motif suivant : ${val(ctx, 'motif') || 'congé annuel'}.
+${civilite(ctx.s)} ${nomB(ctx.s)}${ctx.s.code ? ` (matricule ${B(ctx.s.code)})` : ''}, ${B(val(ctx, 'poste') || posteDefaut(ctx.s))}, à s'absenter de son poste pour le motif suivant : ${vb(ctx, 'motif', 'congé annuel')}.
 
 Cette absence court du ${dateFr(val(ctx, 'dateDebut'))} au ${dateFr(val(ctx, 'dateRetour'))} inclus, la reprise du service étant fixée au lendemain de cette dernière date.
 
 La présente autorisation est délivrée pour servir et valoir ce que de droit.
 
-Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
+Fait à ${vb(ctx, 'lieu', 'Dakar')}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}.`
     ),
   },
 ];

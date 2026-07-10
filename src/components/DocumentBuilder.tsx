@@ -109,7 +109,7 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
             <p className="mt-2 text-[11px] text-slate-400">Modifier un champ met à jour l'aperçu (tant que le corps n'a pas été édité à la main).</p>
           </div>
 
-          <Field label="Corps du document (modifiable)">
+          <Field label="Corps du document (modifiable)" hint="Le texte entre **…** apparaît en gras (valeurs à remplir).">
             <Textarea rows={12} value={corps} onChange={(e) => { setCorps(e.target.value); setDirty(true); }} className="font-mono text-xs leading-relaxed" />
           </Field>
         </div>
@@ -141,8 +141,10 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
               <div className="mt-1.5 text-xs italic text-slate-400">{modele.description}</div>
             </div>
 
-            {/* Corps */}
-            <div className="mt-8 whitespace-pre-wrap text-justify text-[13.5px] leading-relaxed text-slate-700">{corps}</div>
+            {/* Corps — les segments **…** (valeurs à remplir) sont mis en gras */}
+            <div className="mt-8 whitespace-pre-wrap text-justify text-[13.5px] leading-relaxed text-slate-700">
+              {corps.split('**').map((seg, i) => (i % 2 === 1 ? <strong key={i} className="font-semibold text-slate-900">{seg}</strong> : <span key={i}>{seg}</span>))}
+            </div>
 
             {/* Signatures */}
             <div className={'mt-12 ' + (signatures.length === 2 ? 'grid grid-cols-2 gap-8' : 'flex justify-end')}>

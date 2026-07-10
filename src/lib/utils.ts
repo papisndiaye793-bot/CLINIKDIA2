@@ -367,33 +367,69 @@ export function downloadDocumentPDF(filename: string, o: PdfDocument) {
   }
   y += 12;
 
-  // Corps justifié, paragraphe par paragraphe
-  const applyBodyStyle = () => {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10.5);
+  // Corps — les segments encadrés par `**…**` sont rendus en gras (valeurs à
+  // remplir). On découpe en mots typés (gras / normal) et on assemble les
+  // lignes avec césure manuelle, chaque mot étant mesuré dans sa police.
+  const FS = 10.5;
+  const lineH = 5.6;
+  const applyBodyStyle = (bold = false) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFontSize(FS);
     doc.setTextColor(30, 41, 59);
   };
   applyBodyStyle();
-  const lineH = 5.6;
-  const paras = P(o.corps).split('\n');
-  for (const para of paras) {
-    if (para.trim() === '') { y += lineH * 0.6; continue; }
-    const lines = doc.splitTextToSize(para, contentW) as string[];
-    for (let i = 0; i < lines.length; i++) {
-      if (y > pageH - M - 6) {
-        footer();
-        doc.addPage();
-        y = M;
-        // footer() a modifié la police (petite, grise) : on rétablit le style
-        // du corps pour que les pages suivantes restent lisibles.
-        applyBodyStyle();
-      }
-      // Justifier toutes les lignes d'un paragraphe sauf la dernière
-      const isLast = i === lines.length - 1;
-      doc.text(lines[i], M, y, isLast ? {} : { align: 'justify', maxWidth: contentW });
-      y += lineH;
+
+  type Word = { text: string; bold: boolean };
+  const wordsOf = (para: string): Word[] => {
+    const out: Word[] = [];
+    // Segments alternés autour de `**` : indices pairs = normal, impairs = gras.
+    para.split('**').forEach((seg, i) => {
+      if (seg === '') return;
+      const bold = i % 2 === 1;
+      seg.split(/(\s+)/).forEach((tok) => { if (tok !== '') out.push({ text: tok, bold }); });
+    });
+    return out;
+  };
+  const wordW = (w: Word) => {
+    doc.setFont('helvetica', w.bold ? 'bold' : 'normal');
+    return doc.getTextWidth(w.text);
+  };
+  const drawLine = (words: Word[]) => {
+    if (y > pageH - M - 6) { footer(); doc.addPage(); y = M; }
+    let x = M;
+    // Regroupe les mots consécutifs de même graisse en un seul tracé.
+    let i = 0;
+    while (i < words.length) {
+      const bold = words[i].bold;
+      let text = '';
+      while (i < words.length && words[i].bold === bold) { text += words[i].text; i++; }
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.text(text, x, y);
+      x += doc.getTextWidth(text);
     }
+    y += lineH;
+  };
+
+  for (const para of P(o.corps).split('\n')) {
+    if (para.trim() === '') { y += lineH * 0.6; continue; }
+    let line: Word[] = [];
+    let lineW = 0;
+    for (const w of wordsOf(para)) {
+      const ww = wordW(w);
+      // Ignore l'espace en début de ligne issu d'une césure.
+      if (line.length === 0 && /^\s+$/.test(w.text)) continue;
+      if (lineW + ww > contentW && line.length > 0) {
+        // Retire l'espace de fin avant de tracer la ligne.
+        while (line.length && /^\s+$/.test(line[line.length - 1].text)) { lineW -= wordW(line[line.length - 1]); line.pop(); }
+        drawLine(line);
+        line = []; lineW = 0;
+        if (/^\s+$/.test(w.text)) continue;
+      }
+      line.push(w); lineW += ww;
+    }
+    if (line.length) drawLine(line);
   }
+  applyBodyStyle();
 
   // Signatures
   y += 8;
