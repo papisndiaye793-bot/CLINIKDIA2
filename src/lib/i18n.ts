@@ -156,7 +156,7 @@ const fr: Dict = {
   'pr.duration': 'Durée de séance (min)', 'pr.freq': 'Fréquence (séances/sem)', 'pr.bath': 'Bain de dialyse',
   'pr.bloodFlow': 'Débit sang (ml/min)', 'pr.dialysateFlow': 'Débit dialysat (ml/min)', 'pr.anticoag': 'Anticoagulation',
   'pr.med': 'Médicament', 'pr.posology': 'Posologie', 'pr.detailTitle': 'Détail de la prescription', 'pr.medsTitle': 'Traitement médicamenteux', 'pr.deleteTitle': 'Supprimer la prescription',
-  'pr.print': "Imprimer l'ordonnance", 'pr.ordTitle': 'ORDONNANCE', 'pr.ordScheme': 'Schéma de dialyse', 'pr.ordSign': 'Signature et cachet du médecin', 'pr.ordPreview': "Aperçu de l'ordonnance", 'pr.ordEstablished': 'Établie le', 'pr.years': 'ans',
+  'pr.print': "Imprimer l'ordonnance", 'pr.ordTitle': 'ORDONNANCE MÉDICALE', 'pr.ordScheme': 'Schéma de dialyse', 'pr.ordSign': 'Signature et cachet du médecin', 'pr.ordSigner': 'Le médecin prescripteur', 'pr.ordStampSign': '(cachet et signature)', 'pr.ordPlaceDate': 'Fait à {p}, le {d}.', 'pr.ordPreview': "Aperçu de l'ordonnance", 'pr.ordEstablished': 'Établie le', 'pr.years': 'ans',
   'pr.reportTitle': 'Liste des prescriptions',
   'pr.activeCount': 'Prescriptions actives', 'pr.coveredPatients': 'Patients couverts', 'pr.prescribers': 'Prescripteurs', 'pr.searchPh': 'Rechercher un patient, un dialyseur…',
   // Personnel
@@ -480,7 +480,7 @@ const en: Dict = {
   'pr.duration': 'Session duration (min)', 'pr.freq': 'Frequency (sessions/wk)', 'pr.bath': 'Dialysis bath',
   'pr.bloodFlow': 'Blood flow (ml/min)', 'pr.dialysateFlow': 'Dialysate flow (ml/min)', 'pr.anticoag': 'Anticoagulation',
   'pr.med': 'Medication', 'pr.posology': 'Dosage', 'pr.detailTitle': 'Prescription details', 'pr.medsTitle': 'Medication', 'pr.deleteTitle': 'Delete prescription',
-  'pr.print': 'Print prescription', 'pr.ordTitle': 'PRESCRIPTION', 'pr.ordScheme': 'Dialysis scheme', 'pr.ordSign': 'Doctor signature and stamp', 'pr.ordPreview': 'Prescription preview', 'pr.ordEstablished': 'Issued on', 'pr.years': 'yrs',
+  'pr.print': 'Print prescription', 'pr.ordTitle': 'MEDICAL PRESCRIPTION', 'pr.ordScheme': 'Dialysis scheme', 'pr.ordSign': 'Doctor signature and stamp', 'pr.ordSigner': 'The prescribing physician', 'pr.ordStampSign': '(stamp and signature)', 'pr.ordPlaceDate': 'Issued at {p} on {d}.', 'pr.ordPreview': 'Prescription preview', 'pr.ordEstablished': 'Issued on', 'pr.years': 'yrs',
   'pr.reportTitle': 'Prescription list',
   'pr.activeCount': 'Active prescriptions', 'pr.coveredPatients': 'Covered patients', 'pr.prescribers': 'Prescribers', 'pr.searchPh': 'Search a patient, a dialyzer…',
   'pe.subtitle': '{n} team members', 'pe.add': 'Add member', 'pe.member': 'Member', 'pe.contact': 'Contact',

@@ -343,6 +343,9 @@ function OrdonnanceApercu({ prescription, onClose }: { prescription: Prescriptio
   const patient = patients.find((x) => x.id === prescription.patientId);
   const neph = staff.find((x) => x.id === prescription.nephrologueId);
   const meds = prescription.medicaments.filter((m) => m.nom);
+  const ref = `ORD-${prescription.date.replace(/-/g, '')}-${prescription.id.slice(0, 4).toUpperCase()}`;
+  const parts = (settings.adresse || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const place = (parts.length >= 2 ? parts[parts.length - 2] : parts[0]) || 'Dakar';
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm sm:p-8">
@@ -358,100 +361,122 @@ function OrdonnanceApercu({ prescription, onClose }: { prescription: Prescriptio
       </div>
 
       {/* Feuille A4 — ordonnance */}
-      <div className="ordonnance-sheet w-full max-w-[820px] rounded-lg bg-white p-10 text-slate-800 shadow-2xl">
-        {/* En-tête */}
-        <div className="flex items-start justify-between border-b-2 border-brand-600 pb-6">
-          <div className="flex items-start gap-3">
-            {settings.logoUrl ? (
-              <img src={settings.logoUrl} alt="Logo" className="h-12 w-12 rounded-xl object-contain" />
-            ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-white">
-                <Droplets size={26} />
+      <div className="ordonnance-sheet w-full max-w-[820px] overflow-hidden rounded-lg bg-white text-slate-800 shadow-2xl">
+        {/* Filet d'accent en haut de page */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-brand-600 via-brand-500 to-teal-400" />
+
+        <div className="p-10">
+          {/* En-tête établissement + bloc titre */}
+          <div className="flex items-start justify-between gap-6 border-b border-slate-200 pb-6">
+            <div className="flex items-start gap-3.5">
+              {settings.logoUrl ? (
+                <img src={settings.logoUrl} alt="Logo" className="h-14 w-14 rounded-xl object-contain" />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-sm">
+                  <Droplets size={30} />
+                </div>
+              )}
+              <div>
+                <div className="text-xl font-extrabold tracking-tight text-slate-900">{settings.nom}</div>
+                <div className="mt-1 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
+                  <div>{settings.adresse}</div>
+                  <div>Tél : {settings.telephone}{settings.email ? ` · ${settings.email}` : ''}</div>
+                  {(settings.ninea || settings.registreCommerce) && (
+                    <div>{settings.ninea ? `NINEA : ${settings.ninea}` : ''}{settings.ninea && settings.registreCommerce ? ' · ' : ''}{settings.registreCommerce ? `RC : ${settings.registreCommerce}` : ''}</div>
+                  )}
+                </div>
               </div>
-            )}
-            <div>
-              <div className="text-xl font-extrabold tracking-tight text-slate-900">{settings.nom}</div>
-              <div className="mt-1 text-xs leading-relaxed text-slate-500">
-                {settings.adresse}<br />
-                Tél : {settings.telephone} · {settings.email}
+            </div>
+            <div className="shrink-0 rounded-2xl bg-brand-50 px-5 py-3 text-right ring-1 ring-brand-100">
+              <div className="text-base font-bold uppercase tracking-wide text-brand-700">{t('pr.ordTitle')}</div>
+              <div className="mt-1 font-mono text-[11px] text-slate-500">N° {ref}</div>
+              <div className="text-[11px] text-slate-500">{fmtDateLong(prescription.date)}</div>
+            </div>
+          </div>
+
+          {/* Patient & prescripteur */}
+          <div className="mt-6 grid grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <Users2 size={13} /> {t('cf.patient')}
+              </div>
+              <div className="mt-1.5 text-[15px] font-bold text-slate-900">{patient ? `${patient.prenom} ${patient.nom}` : '—'}</div>
+              <div className="mt-0.5 text-xs text-slate-500">
+                {patient?.code ? patient.code : ''}
+                {patient?.dateNaissance ? `${patient.code ? ' · ' : ''}${age(patient.dateNaissance)} ${t('pr.years')}` : ''}
+                {patient?.sexe ? ` · ${patient.sexe === 'M' ? 'H' : 'F'}` : ''}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-right">
+              <div className="flex items-center justify-end gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <Stethoscope size={13} /> {t('cf.nephrologist')}
+              </div>
+              <div className="mt-1.5 text-[15px] font-bold text-slate-900">{neph ? `Dr ${neph.prenom} ${neph.nom}` : '—'}</div>
+              {neph?.specialite && <div className="mt-0.5 text-xs text-slate-500">{neph.specialite}</div>}
+            </div>
+          </div>
+
+          {/* Schéma de dialyse */}
+          <div className="mt-7">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="h-4 w-1 rounded-full bg-brand-500" />
+              <h3 className="text-[13px] font-bold uppercase tracking-wide text-slate-700">{t('pr.ordScheme')}</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <SpecChip icon={<Clock size={12} />} label={t('pd.duration')} value={`${prescription.dureeSeance} min`} />
+              <SpecChip icon={<Repeat size={12} />} label={t('pd.freq')} value={`${prescription.frequenceHebdo}/sem`} />
+              <SpecChip icon={<Gauge size={12} />} label={t('pd.bloodFlow')} value={`${prescription.debitSang} ml/min`} />
+              <SpecChip icon={<Gauge size={12} />} label={t('pd.dialysate')} value={`${prescription.debitDialysat} ml/min`} />
+              <SpecChip icon={<FlaskConical size={12} />} label={t('pr.dialyzer')} value={prescription.dialyseur || '—'} />
+              <SpecChip icon={<Droplets size={12} />} label={t('pr.bath')} value={prescription.bainDialyse || '—'} />
+              <SpecChip icon={<Pill size={12} />} label={t('pr.anticoag')} value={prescription.anticoagulation || '—'} />
+            </div>
+          </div>
+
+          {/* Traitement médicamenteux */}
+          <div className="mt-7">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="h-4 w-1 rounded-full bg-brand-500" />
+              <h3 className="text-[13px] font-bold uppercase tracking-wide text-slate-700">{t('pr.medsTitle')}</h3>
+            </div>
+            <div className="rounded-2xl border border-slate-200 p-5">
+              <div className="flex gap-4">
+                <div className="shrink-0 select-none font-serif text-4xl italic leading-none text-brand-600" title="Recipe">℞</div>
+                <ol className="flex-1 space-y-3">
+                  {meds.length === 0 && <li className="text-sm text-slate-400">—</li>}
+                  {meds.map((m, i) => (
+                    <li key={i} className="flex items-baseline gap-3 border-b border-dashed border-slate-200 pb-3 last:border-0 last:pb-0">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-700">{i + 1}</span>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-900">{m.nom}</div>
+                        <div className="text-[13px] text-slate-500">{m.posologie}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-lg font-bold text-brand-700">{t('pr.ordTitle')}</div>
-            <div className="mt-1 text-xs text-slate-500">{t('pr.ordEstablished')} {fmtDateLong(prescription.date)}</div>
-          </div>
-        </div>
 
-        {/* Patient & prescripteur */}
-        <div className="mt-6 grid grid-cols-2 gap-6 text-sm">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t('cf.patient')}</div>
-            <div className="mt-1 font-semibold text-slate-800">{patient ? `${patient.prenom} ${patient.nom}` : '—'}</div>
-            {patient && (
-              <div className="text-xs text-slate-500">
-                {patient.dateNaissance ? `${age(patient.dateNaissance)} ${t('pr.years')}` : ''}
-                {patient.sexe ? ` · ${patient.sexe}` : ''}
-              </div>
-            )}
+          {/* Lieu, date & signature */}
+          <div className="mt-10 flex items-end justify-between gap-6">
+            <div className="text-xs text-slate-500">
+              {t('pr.ordPlaceDate').replace('{p}', place).replace('{d}', fmtDateLong(prescription.date))}
+            </div>
+            <div className="w-56 text-center">
+              <div className="text-[11px] font-semibold text-slate-600">{t('pr.ordSigner')}</div>
+              {neph && <div className="text-[11px] text-slate-400">Dr {neph.prenom} {neph.nom}</div>}
+              <div className="mt-12 border-t border-slate-300" />
+              <div className="mt-1 text-[10px] italic text-slate-400">{t('pr.ordStampSign')}</div>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t('cf.nephrologist')}</div>
-            <div className="mt-1 font-semibold text-slate-800">{neph ? `Dr ${neph.prenom} ${neph.nom}` : '—'}</div>
-            {neph?.specialite && <div className="text-xs text-slate-500">{neph.specialite}</div>}
+
+          {/* Bande de pied de page — épinglée en bas de la page à l'impression */}
+          <div className="print-footer -mx-10 mt-8 border-t border-slate-200 px-10 pt-3 text-center text-[10px] font-medium text-slate-400">
+            {settings.nom} — {settings.adresse} · {settings.telephone}{settings.email ? ` · ${settings.email}` : ''}
           </div>
-        </div>
-
-        {/* Schéma de dialyse */}
-        <div className="mt-6">
-          <div className="mb-2 text-sm font-bold text-slate-700">{t('pr.ordScheme')}</div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-lg border border-slate-200 p-4 text-sm">
-            <Row label={t('pd.duration')} value={`${prescription.dureeSeance} min`} />
-            <Row label={t('pd.freq')} value={`${prescription.frequenceHebdo}/sem`} />
-            <Row label={t('pr.dialyzer')} value={prescription.dialyseur} />
-            <Row label={t('pr.bath')} value={prescription.bainDialyse} />
-            <Row label={t('pd.bloodFlow')} value={`${prescription.debitSang} ml/min`} />
-            <Row label={t('pd.dialysate')} value={`${prescription.debitDialysat} ml/min`} />
-            <Row label={t('pr.anticoag')} value={prescription.anticoagulation} />
-          </div>
-        </div>
-
-        {/* Traitement médicamenteux */}
-        <div className="mt-6">
-          <div className="mb-2 text-sm font-bold text-slate-700">{t('pr.medsTitle')}</div>
-          <ol className="space-y-1.5 text-sm">
-            {meds.map((m, i) => (
-              <li key={i} className="flex items-baseline gap-2 border-b border-dashed border-slate-200 pb-1.5">
-                <span className="font-semibold text-slate-400">{i + 1}.</span>
-                <span className="font-medium text-slate-800">{m.nom}</span>
-                <span className="text-slate-500">— {m.posologie}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        {/* Signature */}
-        <div className="mt-12 flex justify-end">
-          <div className="w-full max-w-[14rem] text-center sm:w-56">
-            <div className="h-16 border-b border-slate-300" />
-            <div className="mt-1 text-xs text-slate-500">{t('pr.ordSign')}</div>
-          </div>
-        </div>
-
-        {/* Bande de pied de page — épinglée en bas de la page à l'impression */}
-        <div className="print-footer -mx-10 mt-8 border-t border-slate-200 px-10 pt-3 text-center text-[10px] font-medium text-slate-500">
-          {settings.nom} — {settings.adresse} · {settings.telephone} · {settings.email}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value?: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-800">{value || '—'}</span>
     </div>
   );
 }
