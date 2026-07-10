@@ -91,10 +91,10 @@ function NavItemLink({ item }: { item: NavItem }) {
       end={item.end}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-[15px] font-bold transition-all duration-200',
+          'group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition duration-200',
           isActive
-            ? 'active bg-gradient-to-r from-brand-500/90 to-brand-600 text-white shadow-lg shadow-brand-950/40 ring-1 ring-white/15'
-            : 'text-slate-300/90 hover:bg-white/[0.07] hover:text-white'
+            ? 'bg-gradient-to-r from-brand-500/95 to-brand-600 text-white shadow-soft ring-1 ring-white/15'
+            : 'text-slate-300/90 hover:bg-white/10 hover:text-white'
         )
       }
     >
@@ -118,7 +118,7 @@ function NavItemLink({ item }: { item: NavItem }) {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="px-3 pb-2 pt-5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-slate-400/80 first:pt-1">{children}</div>;
+  return <div className="px-3 pb-2 pt-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400/80 first:pt-1">{children}</div>;
 }
 
 function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
@@ -177,8 +177,8 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col overflow-hidden border-r border-slate-800/70 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 transition-transform duration-300 md:static md:z-auto md:translate-x-0',
-        mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        'fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col overflow-hidden border-r border-slate-800/70 bg-slate-950/95 shadow-2xl transition-transform duration-300 md:static md:z-auto md:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}
     >
       {/* Halos de marque décoratifs */}
@@ -201,7 +201,7 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
         <Link
           to="/"
           title={t('nav.dashboard')}
-          className="group block w-full overflow-hidden rounded-2xl shadow-lg shadow-brand-950/20 ring-1 ring-white/10 transition-all duration-200 hover:shadow-brand-900/30 hover:ring-white/25 active:scale-[0.98]"
+          className="group block w-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/95 shadow-soft transition-all duration-200 hover:shadow-lg hover:border-white/20"
         >
           {settings.logoUrl ? (
             <div className="aspect-[16/9] w-full overflow-hidden bg-white">
@@ -223,9 +223,9 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
       {/* Navigation */}
       <nav className="relative flex-1 overflow-y-auto px-3 pb-4 pt-1">
         {visibleGroups.map((g) => (
-          <div key={g.title}>
+          <div key={g.title} className="mb-4 rounded-[1.25rem] bg-slate-950/80 p-2">
             <SectionLabel>{g.title}</SectionLabel>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {g.items.map((item) => (
                 <NavItemLink key={item.to} item={item} />
               ))}
@@ -235,8 +235,8 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
       </nav>
 
       {/* Pied de page */}
-      <div className="relative border-t border-white/5 p-3">
-        <div className="rounded-xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-3 ring-1 ring-white/10">
+      <div className="relative border-t border-white/10 p-3">
+        <div className="rounded-3xl bg-slate-900/95 p-4 ring-1 ring-white/10 shadow-soft">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -430,31 +430,31 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   const { t } = useT();
   const current = allNav.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)));
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+    <header className="flex h-16 shrink-0 items-center justify-between rounded-b-[1.5rem] border border-slate-200/80 bg-white px-4 shadow-sm md:px-6">
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <button
           onClick={onMenu}
-          className="-ml-1 mr-1 flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 md:hidden"
+          className="-ml-1 mr-1 flex h-10 w-10 items-center justify-center rounded-2xl text-slate-600 transition hover:bg-slate-100 md:hidden"
           aria-label="Ouvrir le menu"
         >
           <Menu size={20} />
         </button>
-        <span className="font-medium text-slate-700">{current ? t(`nav.${current.key}`) : 'ClinikDia'}</span>
+        <span className="font-semibold text-slate-800">{current ? t(`nav.${current.key}`) : 'ClinikDia'}</span>
       </div>
       <div className="flex items-center gap-2 md:gap-3">
         <LiveClock />
-        <div className="relative hidden lg:block">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="relative hidden md:block">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             placeholder={t('common.search')}
-            className="w-56 rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:bg-white"
+            className="w-48 sm:w-56 lg:w-64 rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-4 text-sm outline-none transition focus:border-brand-400 focus:bg-white"
           />
         </div>
-        <button className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+        <button className="relative rounded-2xl p-2 text-slate-500 transition hover:bg-slate-100">
           <Bell size={18} />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
         </button>
-        <div className="border-l border-slate-200 pl-2 md:pl-3">
+        <div className="border-l border-slate-200/70 pl-2 md:pl-3">
           <UserMenu />
         </div>
       </div>
@@ -517,8 +517,9 @@ export default function Layout() {
     };
   }, [authenticated, logout]);
 
+  // h-screen (hauteur fixe) : la barre latérale reste en place, seule la zone <main> défile
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       {/* Voile (mobile) lorsque le tiroir est ouvert */}
@@ -530,10 +531,12 @@ export default function Layout() {
         />
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-slate-50">
         <Topbar onMenu={() => setMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Guard />
+        <main className="flex-1 overflow-y-auto px-4 pt-4 pb-6 md:px-6 md:py-6">
+          <div className="app-shell w-full min-h-[calc(100vh-4rem)] rounded-[2rem] bg-slate-50/90 px-0 py-0">
+            <Guard />
+          </div>
         </main>
       </div>
     </div>

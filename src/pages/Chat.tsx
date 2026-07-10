@@ -275,7 +275,7 @@ export default function Chat() {
                   {showEmoji && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowEmoji(false)} />
-                      <div className="absolute bottom-9 left-0 z-20 grid w-64 grid-cols-8 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                      <div className="absolute bottom-9 left-0 z-20 grid w-full max-w-[16rem] grid-cols-8 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
                         {EMOJIS.map((e) => <button key={e} onClick={() => { insert(e); setShowEmoji(false); }} className="rounded p-1 text-lg hover:bg-slate-100">{e}</button>)}
                       </div>
                     </>

@@ -12,6 +12,7 @@ import type {
   Facture,
   ClinicSettings,
   User,
+  Permissions,
   AuditLog,
   AuditAction,
   Channel,
@@ -25,6 +26,7 @@ import type {
 import * as seed from '@/data/seed';
 import { validatePassword } from '@/lib/utils';
 import { DEFAULT_BAREME, type PaieBareme } from '@/lib/paie';
+import { defaultPermissions, normalizePermissions } from '@/lib/permissions';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -126,6 +128,7 @@ interface State {
   logout: () => void;
   changePassword: (userId: string, currentPwd: string, newPwd: string) => { ok: boolean; error?: string };
   resetPasswordByEmail: (email: string, newPwd: string, phoneVerify: string) => { ok: boolean; error?: string };
+  syncUser: (user: { id: string; email: string; nom: string; prenom: string; role: 'admin' | 'utilisateur'; permissions?: Partial<Permissions> }) => void;
 
   // Utilisateurs & RBAC
   setCurrentUser: (id: string) => void;
@@ -283,9 +286,12 @@ export const useStore = create<State>()(
 
       addFacture: (f) =>
         set((st) => {
-          const n = st.factures.length + 1;
+          // Numérotation séparée : PRO- pour les pro forma, FAC- pour les factures
+          const sameKind = st.factures.filter((x) => !!x.proforma === !!f.proforma).length + 1;
+          const prefix = f.proforma ? 'PRO' : 'FAC';
+          const year = new Date().getFullYear();
           return {
-            factures: [{ ...f, id: uid(), numero: `FAC-2026-${String(n).padStart(4, '0')}` }, ...st.factures],
+            factures: [{ ...f, id: uid(), numero: `${prefix}-${year}-${String(sameKind).padStart(4, '0')}` }, ...st.factures],
           };
         }),
       updateFacture: (id, f) =>
@@ -361,6 +367,68 @@ export const useStore = create<State>()(
       },
 
       // ─── Utilisateurs & RBAC ────────────────────────────────────────────
+      syncUser: (user) =>
+        set((st) => {
+          const email = user.email.toLowerCase();
+          const permissions = normalizePermissions(user.permissions ?? defaultPermissions(user.role));
+          const existingById = st.users.find((x) => x.id === user.id);
+          const existingByEmail = st.users.find((x) => x.email.toLowerCase() === email);
+          if (existingById) {
+            const updated: User = {
+              ...existingById,
+              email,
+              nom: user.nom,
+              prenom: user.prenom,
+              role: user.role,
+              permissions,
+              actif: true,
+              password: existingById.password || '',
+              createdAt: existingById.createdAt,
+            };
+            return {
+              users: st.users.map((x) => (x.id === existingById.id ? updated : x)),
+              currentUserId: updated.id,
+              authenticated: true,
+            };
+          }
+          if (existingByEmail) {
+            const updated: User = {
+              ...existingByEmail,
+              email,
+              nom: user.nom,
+              prenom: user.prenom,
+              role: user.role,
+              permissions,
+              actif: true,
+              password: existingByEmail.password || '',
+              createdAt: existingByEmail.createdAt,
+            };
+            return {
+              users: st.users.map((x) => (x.id === existingByEmail.id ? updated : x)),
+              currentUserId: updated.id,
+              authenticated: true,
+            };
+          }
+          const createdAt = new Date().toISOString();
+          return {
+            users: [
+              {
+                id: user.id,
+                email,
+                nom: user.nom,
+                prenom: user.prenom,
+                role: user.role,
+                permissions,
+                actif: true,
+                password: '',
+                createdAt,
+              },
+              ...st.users,
+            ],
+            currentUserId: user.id,
+            authenticated: true,
+          };
+        }),
       setCurrentUser: (id) => set({ currentUserId: id, authenticated: true }),
       addUser: (u) => set((st) => ({ users: [{ ...u, id: uid(), createdAt: new Date().toISOString() }, ...st.users] })),
       updateUser: (id, u) =>

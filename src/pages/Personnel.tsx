@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Phone, Mail } from 'lucide-react';
+import { Plus, Phone, Mail, AlertTriangle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import {
   PageHeader,
@@ -40,10 +40,21 @@ const emptyForm = {
   dateNaissance: '',
   dateEmbauche: '',
   typeContrat: 'CDI' as TypeContrat,
+  dateFinContrat: '',
+  alerteContratJours: 30,
   cadre: false,
   salaireBase: 0,
   contactsUrgence: emptyContacts,
 };
+
+/** Contrats à durée déterminée (fin de contrat requise). */
+const CONTRATS_A_TERME: TypeContrat[] = ['CDD', 'stage', 'vacation', 'prestation'];
+
+/** Jours restants avant la fin du contrat (null si non applicable). */
+export function joursRestants(s: { typeContrat?: TypeContrat; dateFinContrat?: string }): number | null {
+  if (!s.dateFinContrat || !s.typeContrat || !CONTRATS_A_TERME.includes(s.typeContrat)) return null;
+  return Math.ceil((new Date(s.dateFinContrat).getTime() - Date.now()) / 86_400_000);
+}
 
 export default function Personnel() {
   const { staff, addStaff, updateStaff, deleteStaff } = useStore();
@@ -85,6 +96,8 @@ export default function Personnel() {
       dateNaissance: s.dateNaissance ?? '',
       dateEmbauche: s.dateEmbauche ?? '',
       typeContrat: s.typeContrat ?? 'CDI',
+      dateFinContrat: s.dateFinContrat ?? '',
+      alerteContratJours: s.alerteContratJours ?? 30,
       cadre: s.cadre ?? false,
       salaireBase: s.salaireBase ?? 0,
       contactsUrgence: s.contactsUrgence?.length ? [
@@ -103,7 +116,14 @@ export default function Personnel() {
 
   const submit = () => {
     if (!form.nom || !form.prenom) return;
-    const payload = { ...form, salaireBase: Number(form.salaireBase) || 0 };
+    const aTerme = CONTRATS_A_TERME.includes(form.typeContrat);
+    const payload = {
+      ...form,
+      salaireBase: Number(form.salaireBase) || 0,
+      alerteContratJours: Number(form.alerteContratJours) || 30,
+      // Pas de fin de contrat pour un CDI
+      dateFinContrat: aTerme ? form.dateFinContrat : '',
+    };
     if (editingId) {
       updateStaff(editingId, payload);
     } else {
@@ -160,12 +180,25 @@ export default function Personnel() {
                     </div>
                   </Td>
                   <Td>
-                    <button
-                      onClick={() => editable && updateStaff(s.id, { actif: !s.actif })}
-                      title={s.actif ? t('pe.deactivate') : t('pe.activate')}
-                    >
-                      {s.actif ? <Badge tone="green">{t('cf.active')}</Badge> : <Badge tone="slate">{t('cf.inactive')}</Badge>}
-                    </button>
+                    <div className="flex flex-col items-start gap-1">
+                      <button
+                        onClick={() => editable && updateStaff(s.id, { actif: !s.actif })}
+                        title={s.actif ? t('pe.deactivate') : t('pe.activate')}
+                      >
+                        {s.actif ? <Badge tone="green">{t('cf.active')}</Badge> : <Badge tone="slate">{t('cf.inactive')}</Badge>}
+                      </button>
+                      {(() => {
+                        const j = joursRestants(s);
+                        const seuil = s.alerteContratJours ?? 30;
+                        if (j === null || j > seuil) return null;
+                        return (
+                          <span className={'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ' + (j <= 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700')}>
+                            <AlertTriangle size={10} />
+                            {j <= 0 ? t('pe.contractExpired') : t('pe.contractExpires').replace('{n}', String(j))}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </Td>
                   <Td>
                     <RowActions
@@ -207,6 +240,16 @@ export default function Personnel() {
               {Object.entries(L.typeContratLabel).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </Select>
           </Field>
+          {CONTRATS_A_TERME.includes(form.typeContrat) && (
+            <div className="col-span-2 grid grid-cols-2 gap-4 rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+              <Field label={t('pe.contractEnd')} required>
+                <Input type="date" value={form.dateFinContrat} onChange={(e) => set('dateFinContrat', e.target.value)} />
+              </Field>
+              <Field label={t('pe.alertDays')} hint={t('pe.alertDaysHint')}>
+                <Input type="number" min={1} value={form.alerteContratJours} onChange={(e) => set('alerteContratJours', e.target.value)} />
+              </Field>
+            </div>
+          )}
           <Field label={t('pe.category')}>
             <Select value={form.cadre ? '1' : '0'} onChange={(e) => set('cadre', e.target.value === '1')}>
               <option value="0">{t('pa.nonCadre')}</option>

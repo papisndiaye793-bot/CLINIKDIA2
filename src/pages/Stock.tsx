@@ -116,7 +116,7 @@ export default function Stock() {
       )}
 
       <Card className="mb-4 p-3">
-        <Select value={filtre} onChange={(e) => setFiltre(e.target.value)} className="w-56">
+        <Select value={filtre} onChange={(e) => setFiltre(e.target.value)} className="w-full sm:w-56">
           <option value="">{t('cf.allCategories')}</option>
           {Object.entries(L.categorieStock).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </Select>

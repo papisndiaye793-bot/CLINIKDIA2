@@ -6,6 +6,8 @@ export interface AuthUser {
   sub: string;
   email: string;
   role: 'admin' | 'utilisateur';
+  nom?: string;
+  prenom?: string;
   permissions?: Record<string, { access?: boolean; write?: boolean; delete?: boolean }>;
 }
 

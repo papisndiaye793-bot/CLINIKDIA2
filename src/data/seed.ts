@@ -270,7 +270,7 @@ const utilisateurPerms = (() => {
   return p;
 })();
 
-export const DEFAULT_PASSWORD = 'clinikdia';
+export const DEFAULT_PASSWORD = 'Clinik2026';
 
 export const users: User[] = [
   { id: 'u1', nom: 'Camara', prenom: 'Bineta', email: 'b.camara@clinikdia.sn', password: DEFAULT_PASSWORD, role: 'admin', staffId: 's7', actif: true, permissions: defaultPermissions('admin'), derniereConnexion: addDays(0), createdAt: addDays(-400) },

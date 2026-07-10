@@ -8,6 +8,16 @@ import { AuditService } from '../audit/audit.service';
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
+/** Les permissions sont stockées en JSON sérialisé (SQLite). */
+function parsePermissions(raw: string | null | undefined): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -38,11 +48,32 @@ export class AuthService {
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
     await this.audit.record({ userId: user.id, userName: `${user.prenom} ${user.nom}`, action: 'login', module: 'auth', detail: 'Connexion' });
 
-    const token = await this.jwt.signAsync(
-      { sub: user.id, email: user.email, role: user.role, permissions: user.permissions ?? {} },
-      { secret: process.env.JWT_SECRET, expiresIn: process.env.JWT_EXPIRES_IN ?? '30m' },
-    );
-    return { token, user: { id: user.id, email: user.email, role: user.role, mfaEnabled: user.mfaEnabled } };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      permissions: parsePermissions(user.permissions),
+      nom: user.nom,
+      prenom: user.prenom,
+    };
+    const token = await this.jwt.signAsync(payload, {
+      secret: process.env.JWT_SECRET,
+      expiresIn: process.env.JWT_EXPIRES_IN ?? '30m',
+    });
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        role: user.role,
+        permissions: parsePermissions(user.permissions),
+        mfaEnabled: user.mfaEnabled,
+        actif: user.active,
+      },
+    };
   }
 
   async changePassword(userId: string, current: string, next: string) {

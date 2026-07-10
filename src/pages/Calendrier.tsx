@@ -64,7 +64,7 @@ export default function Calendrier() {
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" onClick={() => shiftMonth(-1)}><ChevronLeft size={16} /></Button>
-              <div className="min-w-[160px] text-center text-lg font-semibold capitalize text-slate-800">{monthName(cursor.y, cursor.m)}</div>
+              <div className="min-w-[120px] sm:min-w-[160px] text-center text-lg font-semibold capitalize text-slate-800">{monthName(cursor.y, cursor.m)}</div>
               <Button variant="outline" size="sm" onClick={() => shiftMonth(1)}><ChevronRight size={16} /></Button>
             </div>
             <div className="flex items-center gap-3">

@@ -25,12 +25,23 @@ export default {
           500: '#0ea5a4',
           600: '#0d9488',
         },
+        // ⚠️ Garder une seule clé `colors` : une clé dupliquée écrase la précédente.
+        surface: '#F8FAFC',
+        surfaceAccent: '#FFFFFF',
+        border: '#E2E8F0',
+        textMuted: '#64748B',
+        textStrong: '#0F172A',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06)',
+        card: '0 18px 50px -30px rgba(15, 23, 42, 0.3)',
+        soft: '0 10px 30px rgba(15, 23, 42, 0.08)',
+      },
+      borderRadius: {
+        xl: '1.25rem',
+        '2xl': '1.75rem',
       },
     },
   },

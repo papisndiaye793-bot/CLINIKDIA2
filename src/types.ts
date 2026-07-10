@@ -24,6 +24,8 @@ export interface Patient {
   situationFamiliale?: SituationFamiliale;
   telephone: string;
   adresse: string;
+  nationalite?: string;
+  numCNI?: string; // n° carte nationale d'identité
   contactUrgence?: { nom: string; telephone: string };
   groupeSanguin: string;
   statut: StatutPatient;
@@ -35,6 +37,8 @@ export interface Patient {
   // Prise en charge & parcours
   nephrologueId: string;
   priseEnCharge: PriseEnCharge;
+  // Répartition des prises en charge (ex : IPRES 80 % + patient 20 %)
+  prisesEnCharge?: { type: PriseEnCharge; pourcentage: number }[];
   numAssurance?: string;
   centreOrigine?: string;
   // Sérologies & vaccination
@@ -97,6 +101,7 @@ export interface Staff {
   dateFinContrat?: string;
   salaireBase?: number; // FCFA / mois
   cadre?: boolean; // statut cadre (régime complémentaire IPRES, paie)
+  alerteContratJours?: number; // alerte N jours avant la fin du contrat (défaut 30)
   contactsUrgence?: ContactUrgence[];
   documents?: StaffDocument[];
 }
@@ -218,6 +223,7 @@ export interface Facture {
   priseEnCharge: PriseEnCharge;
   partAssurance: number; // %
   statut: StatutFacture;
+  proforma?: boolean; // facture pro forma (devis — sans valeur comptable)
 }
 
 export type Lang = 'fr' | 'en';
@@ -376,6 +382,8 @@ export type CategorieDepense =
 
 export type StatutDepense = 'payee' | 'en_attente' | 'rejetee';
 
+export type MoyenPaiement = 'Virement' | 'Chèque' | 'Espèces' | 'Prélèvement' | 'Mobile money';
+
 export interface Depense {
   id: string;
   code: string;
@@ -386,6 +394,13 @@ export interface Depense {
   fournisseur: string;
   moyenPaiement: string;
   statut: StatutDepense;
+  // Détails selon le moyen de paiement
+  banque?: string; // virement / chèque
+  referenceVirement?: string; // virement : référence / IBAN
+  numeroCheque?: string; // chèque
+  recuPar?: string; // espèces : bénéficiaire / n° de reçu
+  // Justificatif joint (facture fournisseur, reçu…)
+  justificatif?: { nom: string; mime?: string; taille?: number; dataUrl: string };
 }
 
 // ─── Exercice / clôture annuelle ─────────────────────────────────────────────

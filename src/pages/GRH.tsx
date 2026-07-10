@@ -308,7 +308,7 @@ function EditHrModal({ staff, devise, onClose, onSave, onPreview }: { staff: Sta
 
               {editingId === d.id && (
                 <div className="mt-2 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-2">
-                  <Field label="Type" className="w-48">
+                  <Field label="Type" className="w-full sm:w-48">
                     <Select value={d.type} onChange={(e) => setDocs(docs.map((x) => (x.id === d.id ? { ...x, type: e.target.value } : x)))}>
                       {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
                     </Select>
@@ -328,7 +328,7 @@ function EditHrModal({ staff, devise, onClose, onSave, onPreview }: { staff: Sta
         <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-3">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Ajouter un document</div>
           <div className="flex flex-wrap items-end gap-2">
-            <Field label="Type" className="w-48">
+            <Field label="Type" className="w-full sm:w-48">
               <Select value={newType} onChange={(e) => setNewType(e.target.value)}>
                 {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
               </Select>

@@ -11,7 +11,7 @@ import { PatientsModule } from './patients/patients.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // Anti-force brute global : 10 requêtes / minute / IP (ISO 27002 8.5)
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60, limit: 10 }] }),
     PrismaModule,
     AuditModule,
     AuthModule,

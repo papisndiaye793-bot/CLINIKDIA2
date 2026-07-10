@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Droplets, CheckCircle2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Droplets, CheckCircle2, Trash2, FileText } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import {
   PageHeader,
@@ -13,14 +13,14 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
-import { fmtDateLong, todayISO } from '@/lib/utils';
+import { fmtDateLong, todayISO, downloadListePDF, slugify } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import type { Creneau, Seance } from '@/types';
 
 const creneaux: Creneau[] = ['matin', 'apresmidi', 'soir'];
 
 export default function Planning() {
-  const { machines, seances, patients, staff, addSeance, updateSeance, deleteSeance } = useStore();
+  const { machines, seances, patients, staff, settings, addSeance, updateSeance, deleteSeance } = useStore();
   const { canWrite, canDelete } = useAuth();
   const { t } = useT();
   const L = useLabels();
@@ -46,17 +46,55 @@ export default function Planning() {
   const total = dayseances.length;
   const capacite = machines.filter((m) => m.statut === 'operationnel').length * 3;
 
+  const patientName = (id: string) => {
+    const p = patients.find((x) => x.id === id);
+    return p ? `${p.prenom} ${p.nom}` : '';
+  };
+  const staffName = (id: string) => {
+    const s = staff.find((x) => x.id === id);
+    return s ? `${s.prenom} ${s.nom}` : '';
+  };
+
+  const exportHeaders = [t('cf.date'), t('pl.poste'), 'N°', t('pl.creneau'), t('cf.patient'), t('pl.nurse'), t('common.status')];
+  const exportRows = () =>
+    dayseances
+      .slice()
+      .sort((a, b) => a.machineId.localeCompare(b.machineId) || creneaux.indexOf(a.creneau) - creneaux.indexOf(b.creneau))
+      .map((s) => {
+        const m = machines.find((x) => x.id === s.machineId);
+        return [
+          s.date,
+          m?.code ?? '',
+          m?.poste ?? '',
+          L.creneauLabel[s.creneau],
+          patientName(s.patientId),
+          staffName(s.infirmierId),
+          L.statutSeance[s.statut].label,
+        ];
+      });
+
+  const exportPDF = () => {
+    downloadListePDF(`planning-${slugify(date)}`, {
+      settings,
+      titre: t('nav.planning'),
+      periode: fmtDateLong(date),
+      headers: exportHeaders,
+      rows: exportRows(),
+    });
+  };
+
   return (
     <div>
       <PageHeader
         title={t('nav.planning')}
         subtitle={t('pl.subtitle').replace('{n}', String(total)).replace('{c}', String(capacite))}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
       />
 
       <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => shift(-1)}><ChevronLeft size={16} /></Button>
-          <div className="min-w-[260px] text-center font-medium capitalize text-slate-700">{fmtDateLong(date)}</div>
+          <div className="min-w-[140px] sm:min-w-[260px] text-center font-medium capitalize text-slate-700">{fmtDateLong(date)}</div>
           <Button variant="outline" size="sm" onClick={() => shift(1)}><ChevronRight size={16} /></Button>
           <Button variant="ghost" size="sm" onClick={() => setDate(todayISO())}>{t('pl.today')}</Button>
         </div>

@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { useEffect, useState } from 'react';
 import { useStore } from './store/useStore';
 import { apiGet, ApiError } from '@/lib/api';
+import { normalizePermissions } from '@/lib/permissions';
+import type { Permissions } from '@/types';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -68,16 +70,28 @@ export const router = createBrowserRouter([
 ]);
 
 function AuthHydrator() {
-  const users = useStore((s) => s.users);
-  const setCurrentUser = useStore((s) => s.setCurrentUser);
+  const syncUser = useStore((s) => s.syncUser);
   const logout = useStore((s) => s.logout);
   const setAuthHydrated = useStore((s) => s.setAuthHydrated);
 
   useEffect(() => {
-    apiGet<{ id: string; email: string; role: string }>('/auth/me')
+    apiGet<{
+      id: string;
+      email: string;
+      nom: string;
+      prenom: string;
+      role: 'admin' | 'utilisateur';
+      permissions?: Partial<Permissions>;
+    }>('/auth/me')
       .then((user) => {
-        const local = users.find((u) => u.email.toLowerCase() === user.email.toLowerCase());
-        if (local) setCurrentUser(local.id);
+        syncUser({
+          id: user.id,
+          email: user.email,
+          nom: user.nom,
+          prenom: user.prenom,
+          role: user.role,
+          permissions: normalizePermissions(user.permissions ?? {}),
+        });
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -87,7 +101,7 @@ function AuthHydrator() {
       .finally(() => {
         setAuthHydrated(true);
       });
-  }, [users, setCurrentUser, logout, setAuthHydrated]);
+  }, [syncUser, logout, setAuthHydrated]);
 
   return null;
 }

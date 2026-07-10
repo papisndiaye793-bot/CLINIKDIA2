@@ -23,10 +23,11 @@ import {
   Legend,
 } from 'recharts';
 import { useStore } from '@/store/useStore';
-import { Card, CardHeader, StatCard, Badge, PageHeader } from '@/components/ui';
-import { fmtMoney, todayISO } from '@/lib/utils';
+import { Card, CardHeader, StatCard, Badge, PageHeader, Button } from '@/components/ui';
+import { fmtMoney, todayISO, downloadDashboardPDF, slugify } from '@/lib/utils';
 import { statutMachine, statutSeance, priseEnChargeLabel } from '@/lib/labels';
 import { useT } from '@/lib/i18n';
+import { FileText } from 'lucide-react';
 
 const PIE_COLORS = ['#1a5fe0', '#0d9488', '#f59e0b', '#8b5cf6', '#ef4444'];
 
@@ -66,11 +67,85 @@ export default function Dashboard() {
     }, {})
   ).map(([k, v]) => ({ name: priseEnChargeLabel[k as keyof typeof priseEnChargeLabel], value: v }));
 
+  const exportPDF = () => {
+    const dateLabel = new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Indicateurs de tendance sur l'activité (7 derniers jours vs 7 précédents)
+    const last7 = activite.slice(7).reduce((a, d) => a + d.seances, 0);
+    const prev7 = activite.slice(0, 7).reduce((a, d) => a + d.seances, 0);
+    const varPct = prev7 === 0 ? 0 : Math.round(((last7 - prev7) / prev7) * 100);
+    const moyJour = (last7 / 7).toFixed(1);
+
+    const totalPatients = patients.length || 1;
+    const pecTop = pecData.slice().sort((a, b) => b.value - a.value)[0];
+    const txRecouvGlobal = caEncaisse + impayes > 0 ? Math.round((caEncaisse / (caEncaisse + impayes)) * 100) : 100;
+
+    const kpis = [
+      { label: t('dash.patientsActifs'), value: String(patientsActifs), hint: `${patients.length} ${t('dash.total')}` },
+      { label: t('dash.seancesToday'), value: String(seancesToday.length), hint: `${t('dash.tauxOccupation')} ${tauxOccupation}%` },
+      { label: t('dash.generateurs'), value: `${machinesOp}/${machines.length}`, hint: `${maintEnCours.length} ${t('dash.enMaintenance')}` },
+      { label: t('dash.encaisse'), value: fmtMoney(caEncaisse, settings.devise), hint: `${fmtMoney(impayes, settings.devise)} ${t('dash.enAttente')}` },
+    ];
+
+    // Analyse & interprétation générées à partir des données
+    const activitePoints = [
+      `${last7} séances réalisées sur les 7 derniers jours, soit une moyenne de ${moyJour} séances/jour.`,
+      varPct === 0
+        ? "L'activité est stable par rapport à la semaine précédente."
+        : `L'activité est ${varPct > 0 ? 'en hausse' : 'en baisse'} de ${Math.abs(varPct)} % par rapport aux 7 jours précédents (${prev7} séances).`,
+    ];
+
+    const occupationPoints = [
+      `Le taux d'occupation du jour est de ${tauxOccupation} % (${seancesToday.length} séances pour ${machines.length * 3} créneaux disponibles).`,
+      tauxOccupation >= 85
+        ? 'Le parc est proche de la saturation : anticiper une capacité additionnelle ou un décalage de créneaux pour absorber la demande.'
+        : tauxOccupation < 50
+          ? "L'utilisation reste faible : il existe une marge pour programmer davantage de séances et améliorer le rendement des générateurs."
+          : "L'occupation est équilibrée, avec une réserve de capacité confortable.",
+    ];
+
+    const parcPoints = [
+      `${machinesOp} générateur(s) opérationnel(s) sur ${machines.length}${maintEnCours.length ? `, ${maintEnCours.length} en maintenance` : ''}.`,
+      stockAlertes.length
+        ? `${stockAlertes.length} article(s) de stock sous le seuil d'alerte — réapprovisionnement à planifier pour éviter toute rupture.`
+        : "Aucune alerte de stock : les niveaux de consommables sont au-dessus des seuils.",
+    ];
+
+    const financePoints = [
+      `${fmtMoney(caEncaisse, settings.devise)} encaissés pour ${fmtMoney(impayes, settings.devise)} restant à recouvrer (taux de recouvrement global : ${txRecouvGlobal} %).`,
+      impayes > caEncaisse * 0.3
+        ? "Les impayés représentent une part élevée du chiffre d'affaires : renforcer le suivi des relances patients et assurances."
+        : 'Le niveau des impayés reste maîtrisé.',
+    ];
+
+    const filePoints = [
+      `${patientsActifs} patients actifs sur ${patients.length} au total.`,
+      pecTop
+        ? `La prise en charge dominante est « ${pecTop.name} » (${Math.round((pecTop.value / totalPatients) * 100)} % des patients).`
+        : '',
+    ].filter(Boolean);
+
+    downloadDashboardPDF(`tableau-de-bord-${slugify(todayISO())}`, {
+      settings,
+      titre: t('nav.dashboard'),
+      date: dateLabel,
+      kpis,
+      analyse: [
+        { titre: 'Activité clinique', points: activitePoints },
+        { titre: "Taux d'occupation", points: occupationPoints },
+        { titre: 'Parc & consommables', points: parcPoints },
+        { titre: 'Situation financière', points: financePoints },
+        { titre: 'File active patients', points: filePoints },
+      ],
+    });
+  };
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title={t('nav.dashboard')}
         subtitle={new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -80,10 +155,10 @@ export default function Dashboard() {
         <StatCard label={t('dash.encaisse')} value={fmtMoney(caEncaisse, settings.devise)} icon={<Wallet size={18} />} tone="purple" hint={`${fmtMoney(impayes, settings.devise)} ${t('dash.enAttente')}`} />
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title={t('dash.activite')} subtitle={t('dash.activiteSub')} action={<TrendingUp size={18} className="text-emerald-500" />} />
-          <div className="h-72 p-4">
+          <div className="h-72 p-6">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={activite} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                 <defs>
@@ -120,7 +195,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Alertes */}
         <Card>
           <CardHeader title={t('dash.alertes')} subtitle={t('dash.alertesSub')} action={<AlertTriangle size={18} className="text-amber-500" />} />
@@ -128,7 +203,7 @@ export default function Dashboard() {
             {maintEnCours.map((m) => {
               const machine = machines.find((x) => x.id === m.machineId);
               return (
-                <Link to="/machines" key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                <Link to="/machines" key={m.id} className="flex items-center gap-3 rounded-3xl px-5 py-4 transition duration-200 hover:bg-slate-50">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
                     <Activity size={16} />
                   </span>
@@ -140,7 +215,7 @@ export default function Dashboard() {
               );
             })}
             {stockAlertes.slice(0, 4).map((a) => (
-              <Link to="/stock" key={a.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+              <Link to="/stock" key={a.id} className="flex items-center gap-3 rounded-3xl px-5 py-4 transition duration-200 hover:bg-slate-50">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600">
                   <PackageX size={16} />
                 </span>
@@ -159,7 +234,7 @@ export default function Dashboard() {
         {/* Séances en cours */}
         <Card className="lg:col-span-2">
           <CardHeader title={t('dash.seancesDuJour')} subtitle={`${seancesToday.length} ${t('dash.seancesProgrammees')}`} action={<Link to="/planning" className="text-sm font-medium text-brand-600 hover:underline">{t('dash.voirPlanning')}</Link>} />
-          <div className="max-h-72 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto rounded-[1.5rem] border border-slate-200/80 bg-white shadow-sm">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-slate-100">
                 {seancesToday.slice(0, 8).map((s) => {
@@ -168,9 +243,9 @@ export default function Dashboard() {
                   const st = statutSeance[s.statut];
                   return (
                     <tr key={s.id} className="hover:bg-slate-50">
-                      <td className="px-5 py-2.5">
+                      <td className="px-5 py-3">
                         <div className="flex items-center gap-2.5">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-50 text-sm font-semibold text-brand-700">
                             <Droplets size={14} />
                           </span>
                           <div>
@@ -179,7 +254,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="px-3 py-3 text-right">
                         <Badge tone={st.tone}>{st.label}</Badge>
                       </td>
                     </tr>
@@ -192,13 +267,13 @@ export default function Dashboard() {
       </div>
 
       {/* État des générateurs */}
-      <Card className="mt-5">
+      <Card className="mt-6">
         <CardHeader title={t('dash.etatParc')} subtitle={`${machines.length} ${t('dash.postes')}`} />
         <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4 lg:grid-cols-6">
           {machines.map((m) => {
             const st = statutMachine[m.statut];
             return (
-              <div key={m.id} className="rounded-lg border border-slate-200 p-3 text-center">
+              <div key={m.id} className="rounded-3xl border border-slate-200/80 p-4 text-center transition hover:shadow-sm">
                 <div className="text-xs text-slate-400">{t('dash.poste')} {m.poste}</div>
                 <div className="my-1 font-semibold text-slate-700">{m.code}</div>
                 <Badge tone={st.tone}>{st.label}</Badge>

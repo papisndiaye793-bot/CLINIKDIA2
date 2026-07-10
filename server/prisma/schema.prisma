@@ -21,7 +21,7 @@ model User {
   role        String    @default("utilisateur")
   active      Boolean   @default(true)
   // Permissions RBAC granulaires (stockées en JSON sérialisé)
-  permissions String?
+  permissions String? // JSON sérialisé (SQLite ne supporte pas Json)
   // MFA TOTP (8.5)
   mfaEnabled  Boolean   @default(false)
   mfaSecret   String?
@@ -55,11 +55,14 @@ model Patient {
   situationFamiliale     String?
   telephone              String?
   adresse                String?
-  contactUrgence         String?
+  nationalite            String?
+  numCNI                 String?
+  contactUrgence         String? // JSON sérialisé
   groupeSanguin          String?
   statut                 String   @default("actif")
   nephrologueId          String?
   priseEnCharge          String?
+  prisesEnCharge         String? // JSON sérialisé : [{ type, pourcentage }]
   numAssurance           String?
   centreOrigine          String?
   nephropathie           String?
@@ -74,10 +77,10 @@ model Patient {
   dialyseurType          String?
   dialyseurSurface       String?
   anticoagulant          String?
-  serologies             String?
+  serologies             String? // JSON sérialisé
   vaccinationVHB         Boolean?
   allergies              String?
-  antecedents            String?
+  antecedents            String? // JSON sérialisé
   notes                  String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

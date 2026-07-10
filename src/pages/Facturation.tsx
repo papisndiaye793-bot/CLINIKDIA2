@@ -19,6 +19,7 @@ import {
   ConfirmDialog,
   ActionButton,
 } from '@/components/ui';
+import { RapportListe } from '@/components/RapportListe';
 import { useAuth } from '@/hooks/useAuth';
 import { fmtDate, fmtMoney, montantEnLettres, todayISO } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
@@ -38,17 +39,20 @@ export default function Facturation() {
   const [editTarget, setEditTarget] = useState<Facture | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Facture | null>(null);
   const [filtre, setFiltre] = useState('');
+  const [rapport, setRapport] = useState(false);
 
   const partDefaut: Record<PriseEnCharge, number> = { IPRES: 80, assurance_privee: 60, mutuelle: 50, cmu: 70, payant: 0 };
-  const [form, setForm] = useState({ patientId: patients[0]?.id ?? '', nbSeances: 12 });
+  const [form, setForm] = useState({ patientId: patients[0]?.id ?? '', nbSeances: 12, proforma: false });
 
   const filtered = useMemo(() => factures.filter((f) => !filtre || f.statut === filtre), [factures, filtre]);
 
   const aCharge = (f: Facture) => f.montantTotal * (1 - f.partAssurance / 100);
-  const totalFacture = factures.reduce((a, f) => a + f.montantTotal, 0);
-  const totalEncaisse = factures.reduce((a, f) => a + f.montantPaye, 0);
-  const totalImpaye = factures.reduce((a, f) => a + (aCharge(f) - f.montantPaye), 0);
-  const totalAssurance = factures.reduce((a, f) => a + f.montantTotal * (f.partAssurance / 100), 0);
+  // Les pro forma (devis) sont exclues des totaux comptables
+  const reelles = factures.filter((f) => !f.proforma);
+  const totalFacture = reelles.reduce((a, f) => a + f.montantTotal, 0);
+  const totalEncaisse = reelles.reduce((a, f) => a + f.montantPaye, 0);
+  const totalImpaye = reelles.reduce((a, f) => a + (aCharge(f) - f.montantPaye), 0);
+  const totalAssurance = reelles.reduce((a, f) => a + f.montantTotal * (f.partAssurance / 100), 0);
 
   const submit = () => {
     const patient = patients.find((p) => p.id === form.patientId);
@@ -63,6 +67,7 @@ export default function Facturation() {
       priseEnCharge: patient.priseEnCharge,
       partAssurance: partDefaut[patient.priseEnCharge],
       statut: 'emise',
+      proforma: form.proforma,
     });
     setOpen(false);
   };
@@ -72,7 +77,12 @@ export default function Facturation() {
       <PageHeader
         title={t('nav.facturation')}
         subtitle={t('fa.subtitle').replace('{n}', String(factures.length)).replace('{p}', fmtMoney(settings.tarifSeance, settings.devise))}
-        action={editable ? <Button onClick={() => setOpen(true)}><Plus size={16} /> {t('fa.new')}</Button> : undefined}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setRapport(true)}><Printer size={16} /> {t('common.printList')}</Button>
+            {editable && <Button onClick={() => setOpen(true)}><Plus size={16} /> {t('fa.new')}</Button>}
+          </div>
+        }
       />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -83,25 +93,33 @@ export default function Facturation() {
       </div>
 
       <Card className="mb-4 p-3">
-        <Select value={filtre} onChange={(e) => setFiltre(e.target.value)} className="w-56">
-          <option value="">{t('cf.allStatuses')}</option>
-          {Object.entries(L.statutFacture).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </Select>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="w-full sm:w-auto">
+            <Select value={filtre} onChange={(e) => setFiltre(e.target.value)} className="w-full sm:w-56">
+              <option value="">{t('cf.allStatuses')}</option>
+              {Object.entries(L.statutFacture).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </Select>
+          </div>
+        </div>
       </Card>
 
       <Card>
-        <Table>
-          <thead className="border-b border-slate-100 bg-slate-50/60">
-            <tr><Th>{t('pd.col.num')}</Th><Th>{t('cf.patient')}</Th><Th>{t('cf.date')}</Th><Th>{t('cf.total')}</Th><Th>{t('fa.coverage')}</Th><Th>{t('fa.toCharge')}</Th><Th>{t('cf.paid')}</Th><Th>{t('common.status')}</Th><Th className="text-right">{t('common.actions')}</Th></tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[960px]">
+            <thead className="border-b border-slate-100 bg-slate-50/60">
+              <tr><Th>{t('pd.col.num')}</Th><Th>{t('cf.patient')}</Th><Th>{t('cf.date')}</Th><Th>{t('cf.total')}</Th><Th>{t('fa.coverage')}</Th><Th>{t('fa.toCharge')}</Th><Th>{t('cf.paid')}</Th><Th>{t('common.status')}</Th><Th className="text-right">{t('common.actions')}</Th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
             {filtered.map((f) => {
               const patient = patients.find((p) => p.id === f.patientId);
               const fst = L.statutFacture[f.statut];
               const charge = aCharge(f);
               return (
                 <tr key={f.id} className="hover:bg-slate-50">
-                  <Td className="font-medium">{f.numero}</Td>
+                  <Td className="font-medium">
+                    {f.numero}
+                    {f.proforma && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">{t('fa.proforma')}</span>}
+                  </Td>
                   <Td>{patient?.prenom} {patient?.nom}</Td>
                   <Td>{fmtDate(f.date)}</Td>
                   <Td>{fmtMoney(f.montantTotal, settings.devise)}</Td>
@@ -126,6 +144,7 @@ export default function Facturation() {
             })}
           </tbody>
         </Table>
+      </div>
       </Card>
 
       <Modal
@@ -141,6 +160,13 @@ export default function Facturation() {
             </Select>
           </Field>
           <Field label={t('fa.nbSessions')}><Input type="number" value={form.nbSeances} onChange={(e) => setForm({ ...form, nbSeances: Number(e.target.value) })} /></Field>
+          <Field label={t('fa.docType')}>
+            <Select value={form.proforma ? '1' : '0'} onChange={(e) => setForm({ ...form, proforma: e.target.value === '1' })}>
+              <option value="0">{t('fa.docInvoice')}</option>
+              <option value="1">{t('fa.docProforma')}</option>
+            </Select>
+          </Field>
+          {form.proforma && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{t('fa.proformaNote')}</p>}
           <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
             {t('cf.total')} : <span className="font-semibold text-slate-800">{fmtMoney(Number(form.nbSeances) * settings.tarifSeance, settings.devise)}</span>
           </div>
@@ -200,6 +226,49 @@ export default function Facturation() {
           }}
         />
       )}
+
+      <RapportListe
+        open={rapport}
+        onClose={() => setRapport(false)}
+        titre={t('fa.reportTitle')}
+        settings={settings}
+        rows={factures}
+        dateOf={(f) => f.date}
+        colonnes={[
+          { header: t('pd.col.num'), text: (f) => `${f.numero}${f.proforma ? ' (Pro forma)' : ''}`, cell: (f) => <span className="font-medium">{f.numero}{f.proforma ? ' (Pro forma)' : ''}</span> },
+          { header: t('cf.patient'), cell: (f) => { const p = patients.find((x) => x.id === f.patientId); return p ? `${p.prenom} ${p.nom}` : '—'; } },
+          { header: t('cf.date'), cell: (f) => fmtDate(f.date) },
+          { header: t('fa.coverage'), cell: (f) => `${L.priseEnChargeLabel[f.priseEnCharge]} (${f.partAssurance}%)` },
+          { header: t('common.status'), cell: (f) => L.statutFacture[f.statut].label },
+          { header: t('cf.total'), align: 'right', className: 'whitespace-nowrap', cell: (f) => fmtMoney(f.montantTotal, settings.devise) },
+          { header: t('fa.toCharge'), align: 'right', className: 'whitespace-nowrap', cell: (f) => fmtMoney(aCharge(f), settings.devise) },
+          { header: t('cf.paid'), align: 'right', className: 'font-medium whitespace-nowrap', cell: (f) => fmtMoney(f.montantPaye, settings.devise) },
+        ]}
+        synthese={(rows) => {
+          const reel = rows.filter((f) => !f.proforma);
+          const ca = reel.reduce((a, f) => a + f.montantTotal, 0);
+          const enc = reel.reduce((a, f) => a + f.montantPaye, 0);
+          const imp = reel.reduce((a, f) => a + (aCharge(f) - f.montantPaye), 0);
+          return (
+            <dl className="space-y-1.5">
+              <div className="flex justify-between"><dt className="text-slate-500">{t('fa.ca')}</dt><dd className="font-medium">{fmtMoney(ca, settings.devise)}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">{t('fa.collected')}</dt><dd className="font-medium">{fmtMoney(enc, settings.devise)}</dd></div>
+              <div className="mt-1 flex justify-between border-t border-slate-200 pt-1.5 text-base font-bold"><dt>{t('fa.toRecover')}</dt><dd>{fmtMoney(imp, settings.devise)}</dd></div>
+            </dl>
+          );
+        }}
+        syntheseRows={(rows) => {
+          const reel = rows.filter((f) => !f.proforma);
+          const ca = reel.reduce((a, f) => a + f.montantTotal, 0);
+          const enc = reel.reduce((a, f) => a + f.montantPaye, 0);
+          const imp = reel.reduce((a, f) => a + (aCharge(f) - f.montantPaye), 0);
+          return [
+            { label: t('fa.ca'), value: fmtMoney(ca, settings.devise) },
+            { label: t('fa.collected'), value: fmtMoney(enc, settings.devise) },
+            { label: t('fa.toRecover'), value: fmtMoney(imp, settings.devise) },
+          ];
+        }}
+      />
     </div>
   );
 }
@@ -245,9 +314,9 @@ function FactureApercu({
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm sm:p-8">
       {/* Barre d'outils (non imprimée) */}
-      <div className="no-print mb-4 flex w-full max-w-[820px] items-center justify-between">
-        <h3 className="text-base font-semibold text-white">{t('fa.preview')} — {facture.numero}</h3>
-        <div className="flex items-center gap-2">
+      <div className="no-print mb-4 flex flex-wrap w-full items-center justify-between gap-3">
+        <h3 className="min-w-0 text-base font-semibold text-white">{t('fa.preview')} — {facture.numero}</h3>
+        <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => window.print()}><Printer size={16} /> {t('fa.print')}</Button>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-white transition hover:bg-white/25">
             <X size={18} />
@@ -256,116 +325,170 @@ function FactureApercu({
       </div>
 
       {/* Feuille A4 */}
-      <div className="facture-sheet w-full max-w-[820px] rounded-lg bg-white p-10 text-slate-800 shadow-2xl">
-        {/* En-tête */}
-        <div className="flex items-start justify-between border-b-2 border-brand-600 pb-6">
-          <div className="flex items-start gap-3">
-            {settings.logoUrl ? (
-              <img src={settings.logoUrl} alt="Logo" className="h-12 w-12 rounded-xl object-contain" />
-            ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-white">
-                <Droplets size={26} />
+      <div className="facture-sheet relative w-full max-w-[95vw] overflow-hidden rounded-lg bg-white text-slate-800 shadow-2xl sm:max-w-[820px]">
+        {/* Filigrane pro forma */}
+        {facture.proforma && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <span className="-rotate-[24deg] select-none text-[84px] font-black uppercase tracking-[0.2em] text-amber-500/10">
+              {t('fa.proforma')}
+            </span>
+          </div>
+        )}
+
+        {/* Bande d'en-tête */}
+        <div className={'relative px-8 py-7 text-white sm:px-10 ' + (facture.proforma ? 'bg-amber-600' : 'bg-slate-900')}>
+          <div className="pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-20 right-24 h-40 w-40 rounded-full bg-white/5" />
+          <div className="relative flex items-start justify-between gap-6">
+            <div className="flex items-center gap-3.5">
+              {settings.logoUrl ? (
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white p-1">
+                  <img src={settings.logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                </div>
+              ) : (
+                <div className={'flex h-14 w-14 items-center justify-center rounded-2xl text-white ring-1 ring-white/25 ' + (facture.proforma ? 'bg-amber-500' : 'bg-brand-600')}>
+                  <Droplets size={28} />
+                </div>
+              )}
+              <div>
+                <div className="text-xl font-extrabold tracking-tight">{settings.nom}</div>
+                <div className="mt-0.5 text-[11px] leading-relaxed text-white/70">
+                  {settings.adresse}<br />
+                  Tél : {settings.telephone} · {settings.email}
+                </div>
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[26px] font-black uppercase leading-none tracking-tight">
+                {facture.proforma ? t('fa.proformaTitle') : t('fa.invoice')}
+              </div>
+              <div className="mt-2 inline-block rounded-full bg-white/15 px-3 py-1 text-sm font-bold tracking-wide ring-1 ring-white/25">
+                {facture.numero}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Liseré dégradé */}
+        <div className={'h-1.5 w-full ' + (facture.proforma ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' : 'bg-gradient-to-r from-brand-400 via-brand-600 to-teal-500')} />
+
+        <div className="relative px-8 py-7 sm:px-10">
+          {/* Méta : date / statut / identifiants légaux */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="text-xs">
+              <span className="font-semibold uppercase tracking-wide text-slate-400">{t('cf.date')}</span>
+              <div className="mt-0.5 text-sm font-bold text-slate-800">{fmtDate(facture.date)}</div>
+            </div>
+            {settings.ninea && (
+              <div className="text-xs">
+                <span className="font-semibold uppercase tracking-wide text-slate-400">NINEA</span>
+                <div className="mt-0.5 text-sm font-bold text-slate-800">{settings.ninea}</div>
               </div>
             )}
-            <div>
-              <div className="text-xl font-extrabold tracking-tight text-slate-900">{settings.nom}</div>
+            {settings.registreCommerce && (
+              <div className="text-xs">
+                <span className="font-semibold uppercase tracking-wide text-slate-400">RC</span>
+                <div className="mt-0.5 text-sm font-bold text-slate-800">{settings.registreCommerce}</div>
+              </div>
+            )}
+            <div className="text-xs">
+              <span className="font-semibold uppercase tracking-wide text-slate-400">{t('common.status')}</span>
+              <div className="mt-0.5">
+                {facture.proforma
+                  ? <Badge tone="amber">{t('fa.proforma')}</Badge>
+                  : <Badge tone={st.tone}>{st.label}</Badge>}
+              </div>
+            </div>
+          </div>
+
+          {/* Facturé à / Prise en charge */}
+          <div className="mt-6 grid grid-cols-2 gap-5">
+            <div className="rounded-xl border border-slate-200 p-4">
+              <div className={'mb-2 text-[11px] font-bold uppercase tracking-[0.14em] ' + (facture.proforma ? 'text-amber-600' : 'text-brand-700')}>{t('fa.billedTo')}</div>
+              <div className="text-base font-bold text-slate-900">{patient ? `${patient.prenom} ${patient.nom}` : '—'}</div>
               <div className="mt-1 text-xs leading-relaxed text-slate-500">
-                {settings.adresse}<br />
-                Tél : {settings.telephone} · {settings.email}
-                {(settings.ninea || settings.registreCommerce) && (
-                  <>
-                    <br />
-                    {settings.ninea && <>NINEA : {settings.ninea}</>}
-                    {settings.ninea && settings.registreCommerce && ' · '}
-                    {settings.registreCommerce && <>RC : {settings.registreCommerce}</>}
-                  </>
-                )}
+                {patient?.code}<br />
+                {patient?.adresse}<br />
+                {patient?.telephone}
               </div>
             </div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-black uppercase tracking-tight text-brand-700">{t('fa.invoice')}</div>
-            <div className="mt-1 text-sm font-semibold text-slate-700">{facture.numero}</div>
-            <div className="text-xs text-slate-500">{t('cf.date')} : {fmtDate(facture.date)}</div>
-            <div className="mt-2 inline-flex"><Badge tone={st.tone}>{st.label}</Badge></div>
-          </div>
-        </div>
-
-        {/* Émetteur / Client */}
-        <div className="mt-6 grid grid-cols-2 gap-6">
-          <div>
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('fa.billedTo')}</div>
-            <div className="text-sm font-semibold text-slate-800">{patient ? `${patient.prenom} ${patient.nom}` : '—'}</div>
-            <div className="text-xs leading-relaxed text-slate-500">
-              {patient?.code}<br />
-              {patient?.adresse}<br />
-              {patient?.telephone}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-sm">
+              <div className={'mb-2 text-[11px] font-bold uppercase tracking-[0.14em] ' + (facture.proforma ? 'text-amber-600' : 'text-brand-700')}>{t('fa.coverage')}</div>
+              <div className="flex justify-between py-0.5"><span className="text-slate-500">{t('fa.coverage')}</span><span className="font-semibold text-slate-800">{L.priseEnChargeLabel[facture.priseEnCharge]}</span></div>
+              <div className="flex justify-between py-0.5"><span className="text-slate-500">{t('fa.insurancePart')}</span><span className="font-semibold text-slate-800">{facture.partAssurance}%</span></div>
+              {patient?.numAssurance && <div className="flex justify-between py-0.5"><span className="text-slate-500">{t('fa.insuredNo')}</span><span className="font-semibold text-slate-800">{patient.numAssurance}</span></div>}
             </div>
           </div>
-          <div className="rounded-lg bg-slate-50 p-4 text-sm">
-            <div className="flex justify-between py-0.5"><span className="text-slate-500">{t('fa.coverage')}</span><span className="font-medium">{L.priseEnChargeLabel[facture.priseEnCharge]}</span></div>
-            <div className="flex justify-between py-0.5"><span className="text-slate-500">{t('fa.insurancePart')}</span><span className="font-medium">{facture.partAssurance}%</span></div>
-            {patient?.numAssurance && <div className="flex justify-between py-0.5"><span className="text-slate-500">{t('fa.insuredNo')}</span><span className="font-medium">{patient.numAssurance}</span></div>}
-          </div>
-        </div>
 
-        {/* Tableau des lignes */}
-        <table className="mt-6 w-full text-sm">
-          <thead>
-            <tr className="bg-brand-600 text-white">
-              <th className="rounded-l-md px-4 py-2.5 text-left font-semibold">{t('cf.designation')}</th>
-              <th className="px-4 py-2.5 text-center font-semibold">{t('cf.qty')}</th>
-              <th className="px-4 py-2.5 text-right font-semibold">{t('cf.unitPrice')}</th>
-              <th className="rounded-r-md px-4 py-2.5 text-right font-semibold">{t('cf.amount')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {facture.lignes.map((l, i) => (
-              <tr key={i} className="border-b border-slate-100">
-                <td className="px-4 py-3 text-slate-700">{l.designation}</td>
-                <td className="px-4 py-3 text-center text-slate-600">{l.quantite}</td>
-                <td className="px-4 py-3 text-right text-slate-600">{fmtMoney(l.prixUnitaire, settings.devise)}</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">{fmtMoney(l.quantite * l.prixUnitaire, settings.devise)}</td>
+          {/* Tableau des lignes */}
+          <table className="mt-6 w-full text-sm">
+            <thead>
+              {/* Fond posé sur les th : une règle globale écrase le fond des tr d'en-tête */}
+              <tr className="text-white">
+                <th className="rounded-l-lg !bg-slate-900 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider">{t('cf.designation')}</th>
+                <th className="!bg-slate-900 px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider">{t('cf.qty')}</th>
+                <th className="!bg-slate-900 px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider">{t('cf.unitPrice')}</th>
+                <th className="rounded-r-lg !bg-slate-900 px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider">{t('cf.amount')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {facture.lignes.map((l, i) => (
+                <tr key={i} className={'border-b border-slate-100 ' + (i % 2 === 1 ? 'bg-slate-50/70' : '')}>
+                  <td className="px-4 py-3 font-medium text-slate-700">{l.designation}</td>
+                  <td className="px-4 py-3 text-center tabular-nums text-slate-600">{l.quantite}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-600">{fmtMoney(l.prixUnitaire, settings.devise)}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-800">{fmtMoney(l.quantite * l.prixUnitaire, settings.devise)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-        {/* Totaux */}
-        <div className="mt-5 flex justify-end">
-          <div className="w-72 space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">{t('cf.total')}</span><span className="font-medium">{fmtMoney(facture.montantTotal, settings.devise)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t('fa.insurancePart')} ({facture.partAssurance}%)</span><span className="font-medium text-slate-500">− {fmtMoney(partAssuranceMontant, settings.devise)}</span></div>
-            <div className="flex justify-between border-t border-slate-200 pt-1.5 text-base"><span className="font-semibold text-slate-700">{t('fa.net')}</span><span className="font-bold text-brand-700">{fmtMoney(aCharge, settings.devise)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">{t('fa.alreadyPaid')}</span><span className="font-medium text-emerald-600">{fmtMoney(facture.montantPaye, settings.devise)}</span></div>
-            <div className="flex justify-between rounded-md bg-slate-900 px-3 py-2 text-white"><span className="font-semibold">{t('fa.remaining')}</span><span className="font-bold">{fmtMoney(reste, settings.devise)}</span></div>
-          </div>
-        </div>
-
-        {/* Montant en lettres */}
-        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-          <span className="text-slate-500">{t('fa.arrete')} </span>
-          <span className="font-semibold text-slate-800">{montantEnLettres(aCharge, t('fa.francsCFA'))}.</span>
-        </div>
-
-        {/* Pied / signature */}
-        <div className="mt-8 flex items-end justify-between gap-6">
-          <div className="flex items-end gap-4">
-            {qr && (
-              <div className="text-center">
-                <img src={qr} alt="QR" className="h-24 w-24" />
-                <div className="mt-1 text-[10px] text-slate-400">{t('fa.verification')}</div>
+          {/* Totaux */}
+          <div className="mt-6 flex flex-col-reverse items-start justify-between gap-6 sm:flex-row">
+            {/* Montant en lettres */}
+            <div className={'w-full flex-1 rounded-xl border-l-4 bg-slate-50 px-4 py-3 text-sm ' + (facture.proforma ? 'border-amber-500' : 'border-brand-600')}>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{t('fa.arrete')}</div>
+              <div className="mt-1 font-semibold italic text-slate-700">{montantEnLettres(aCharge, t('fa.francsCFA'))}.</div>
+            </div>
+            <div className="w-full space-y-1.5 text-sm sm:w-80">
+              <div className="flex justify-between px-1"><span className="text-slate-500">{t('cf.total')}</span><span className="font-semibold tabular-nums">{fmtMoney(facture.montantTotal, settings.devise)}</span></div>
+              <div className="flex justify-between px-1"><span className="text-slate-500">{t('fa.insurancePart')} ({facture.partAssurance}%)</span><span className="font-medium tabular-nums text-slate-500">− {fmtMoney(partAssuranceMontant, settings.devise)}</span></div>
+              <div className="flex justify-between px-1"><span className="text-slate-500">{t('fa.alreadyPaid')}</span><span className="font-semibold tabular-nums text-emerald-600">{fmtMoney(facture.montantPaye, settings.devise)}</span></div>
+              <div className={'mt-2 flex items-center justify-between rounded-xl px-4 py-3 text-white ' + (facture.proforma ? 'bg-amber-600' : 'bg-slate-900')}>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-white/60">{t('fa.remaining')}</div>
+                  <div className="text-[11px] text-white/60">{t('fa.net')} : {fmtMoney(aCharge, settings.devise)}</div>
+                </div>
+                <span className="text-xl font-black tabular-nums">{fmtMoney(reste, settings.devise)}</span>
               </div>
-            )}
-            <div className="text-[11px] leading-relaxed text-slate-400">
-              {t('fa.thanks')}<br />
-              {settings.mentionsLegales || ''}
             </div>
           </div>
-          <div className="shrink-0 text-center">
-            <div className="text-xs text-slate-500">{t('fa.madeAt')} {fmtDate(todayISO())}</div>
-            <div className="mt-10 w-48 border-t border-slate-300 pt-1 text-xs text-slate-500">{t('fa.signature')}</div>
+
+          {/* Pied : QR / mentions / signature */}
+          <div className="mt-8 flex items-end justify-between gap-6 border-t border-slate-200 pt-5">
+            <div className="flex items-end gap-4">
+              {qr && (
+                <div className="shrink-0 text-center">
+                  <img src={qr} alt="QR" className="h-20 w-20 rounded-md ring-1 ring-slate-200" />
+                  <div className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">{t('fa.verification')}</div>
+                </div>
+              )}
+              <div className="max-w-xs text-[11px] leading-relaxed text-slate-400">
+                <span className="font-semibold text-slate-500">{t('fa.thanks')}</span><br />
+                {settings.mentionsLegales || ''}
+              </div>
+            </div>
+            <div className="shrink-0 text-center">
+              <div className="text-xs text-slate-500">{t('fa.madeAt')} {fmtDate(todayISO())}</div>
+              <div className="mt-2 flex h-20 w-48 items-end justify-center rounded-xl border border-dashed border-slate-300 pb-1.5 text-[11px] font-medium text-slate-400">
+                {t('fa.signature')}
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Bande de pied de page — épinglée en bas de la page à l'impression */}
+        <div className={'print-footer px-8 py-2.5 text-center text-[10px] font-medium text-white/80 sm:px-10 ' + (facture.proforma ? 'bg-amber-600' : 'bg-slate-900')}>
+          {settings.nom} — {settings.adresse} · {settings.telephone} · {settings.email}
         </div>
       </div>
 

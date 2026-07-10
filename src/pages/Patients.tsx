@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, UserPlus } from 'lucide-react';
+import { Plus, Search, UserPlus, Trash2 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
 import { useStore } from '@/store/useStore';
 import {
@@ -36,6 +36,8 @@ const emptyForm = {
   taille: '' as number | string,
   groupeSanguin: 'O+',
   situationFamiliale: 'celibataire' as SituationFamiliale,
+  nationalite: 'Sénégalaise',
+  numCNI: '',
   // Coordonnées
   telephone: '',
   adresse: '',
@@ -45,6 +47,7 @@ const emptyForm = {
   statut: 'actif' as StatutPatient,
   nephrologueId: '',
   priseEnCharge: 'IPRES' as PriseEnCharge,
+  prisesEnCharge: [] as { type: PriseEnCharge; pourcentage: number }[],
   numAssurance: '',
   centreOrigine: '',
   // Néphrologie
@@ -123,6 +126,8 @@ export default function Patients() {
       taille: p.taille ?? '',
       groupeSanguin: p.groupeSanguin,
       situationFamiliale: p.situationFamiliale ?? 'celibataire',
+      nationalite: p.nationalite ?? 'Sénégalaise',
+      numCNI: p.numCNI ?? '',
       telephone: p.telephone,
       adresse: p.adresse,
       contactUrgenceNom: p.contactUrgence?.nom ?? '',
@@ -130,6 +135,7 @@ export default function Patients() {
       statut: p.statut,
       nephrologueId: p.nephrologueId,
       priseEnCharge: p.priseEnCharge,
+      prisesEnCharge: p.prisesEnCharge ?? [],
       numAssurance: p.numAssurance ?? '',
       centreOrigine: p.centreOrigine ?? '',
       nephropathie: p.nephropathie,
@@ -164,6 +170,8 @@ export default function Patients() {
       taille: form.taille ? Number(form.taille) : undefined,
       groupeSanguin: form.groupeSanguin,
       situationFamiliale: form.situationFamiliale,
+      nationalite: form.nationalite || undefined,
+      numCNI: form.numCNI || undefined,
       telephone: form.telephone,
       adresse: form.adresse,
       contactUrgence:
@@ -173,6 +181,7 @@ export default function Patients() {
       statut: form.statut,
       nephrologueId: form.nephrologueId,
       priseEnCharge: form.priseEnCharge,
+      prisesEnCharge: form.prisesEnCharge.filter((r) => r.pourcentage > 0),
       numAssurance: form.numAssurance || undefined,
       centreOrigine: form.centreOrigine || undefined,
       nephropathie: form.nephropathie,
@@ -224,12 +233,12 @@ export default function Patients() {
       />
 
       <Card className="mb-4 p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[240px] flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full flex-1 min-w-0">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input placeholder={t('pt.search')} value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
           </div>
-          <Select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} className="w-48">
+          <Select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} className="w-full sm:w-48">
             <option value="">{t('pt.allStatus')}</option>
             {Object.entries(L.statutPatient).map(([k, v]) => (
               <option key={k} value={k}>{v.label}</option>
@@ -305,7 +314,7 @@ export default function Patients() {
       >
         {/* Identité */}
         <SectionTitle>{t('pt.sec.identity')}</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           <Field label={t('pt.f.firstname')}><Input value={form.prenom} onChange={(e) => set('prenom', e.target.value)} /></Field>
           <Field label={t('pt.f.lastname')}><Input value={form.nom} onChange={(e) => set('nom', e.target.value)} /></Field>
           <Field label={t('pt.f.sex')}>
@@ -327,20 +336,22 @@ export default function Patients() {
               {Object.entries(L.situationFamilialeLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </Select>
           </Field>
+          <Field label={t('pt.f.nationality')}><Input value={form.nationalite} onChange={(e) => set('nationalite', e.target.value)} /></Field>
+          <Field label={t('pt.f.cni')}><Input value={form.numCNI} onChange={(e) => set('numCNI', e.target.value)} placeholder="1 234 5678 90123" /></Field>
         </div>
 
         {/* Coordonnées */}
         <SectionTitle>{t('pt.sec.contact')}</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           <Field label={t('pt.f.phone')}><Input value={form.telephone} onChange={(e) => set('telephone', e.target.value)} /></Field>
-          <Field label={t('pt.f.address')} className="sm:col-span-2"><Input value={form.adresse} onChange={(e) => set('adresse', e.target.value)} /></Field>
-          <Field label={t('pt.f.emName')} className="sm:col-span-2"><Input value={form.contactUrgenceNom} onChange={(e) => set('contactUrgenceNom', e.target.value)} placeholder={t('pt.f.emNamePh')} /></Field>
+          <Field label={t('pt.f.address')} className="sm:col-span-2 md:col-span-3"><Input value={form.adresse} onChange={(e) => set('adresse', e.target.value)} /></Field>
+          <Field label={t('pt.f.emName')} className="sm:col-span-2 md:col-span-3"><Input value={form.contactUrgenceNom} onChange={(e) => set('contactUrgenceNom', e.target.value)} placeholder={t('pt.f.emNamePh')} /></Field>
           <Field label={t('pt.f.emPhone')}><Input value={form.contactUrgenceTel} onChange={(e) => set('contactUrgenceTel', e.target.value)} /></Field>
         </div>
 
         {/* Prise en charge & parcours */}
         <SectionTitle>{t('pt.sec.coverage')}</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           <Field label={t('common.status')}>
             <Select value={form.statut} onChange={(e) => set('statut', e.target.value)}>
               {Object.entries(L.statutPatient).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -357,13 +368,70 @@ export default function Patients() {
               {nephrologues.map((n) => <option key={n.id} value={n.id}>Dr {n.prenom} {n.nom}</option>)}
             </Select>
           </Field>
-          <Field label={t('pt.f.origin')} className="sm:col-span-2"><Input value={form.centreOrigine} onChange={(e) => set('centreOrigine', e.target.value)} /></Field>
+          <Field label={t('pt.f.origin')} className="sm:col-span-2 md:col-span-3"><Input value={form.centreOrigine} onChange={(e) => set('centreOrigine', e.target.value)} /></Field>
+
+          {/* Répartition des prises en charge en pourcentages */}
+          <div className="sm:col-span-2 md:col-span-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-slate-700">{t('pt.f.coverageSplit')}</span>
+              {(() => {
+                const tot = form.prisesEnCharge.reduce((a, r) => a + (Number(r.pourcentage) || 0), 0);
+                return form.prisesEnCharge.length > 0 ? (
+                  <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold ' + (tot === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                    {t('cf.total')} : {tot}%
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <div className="space-y-2">
+              {form.prisesEnCharge.map((r, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Select
+                    value={r.type}
+                    onChange={(e) => set('prisesEnCharge', form.prisesEnCharge.map((x, j) => (j === i ? { ...x, type: e.target.value as PriseEnCharge } : x)))}
+                    className="flex-1"
+                  >
+                    {Object.entries(L.priseEnChargeLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </Select>
+                  <div className="relative w-28">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={r.pourcentage}
+                      onChange={(e) => set('prisesEnCharge', form.prisesEnCharge.map((x, j) => (j === i ? { ...x, pourcentage: Number(e.target.value) || 0 } : x)))}
+                      className="pr-8 text-right"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set('prisesEnCharge', form.prisesEnCharge.filter((_, j) => j !== i))}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const tot = form.prisesEnCharge.reduce((a, r) => a + (Number(r.pourcentage) || 0), 0);
+                set('prisesEnCharge', [...form.prisesEnCharge, { type: form.priseEnCharge, pourcentage: Math.max(0, 100 - tot) }]);
+              }}
+              className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-brand-400 hover:text-brand-600"
+            >
+              <Plus size={13} /> {t('pt.f.addCoverage')}
+            </button>
+            <p className="mt-2 text-[11px] text-slate-400">{t('pt.f.coverageSplitHint')}</p>
+          </div>
         </div>
 
         {/* Données néphrologiques */}
         <SectionTitle>{t('pt.sec.nephro')}</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label={t('pt.f.nephropathy')} className="sm:col-span-3"><Input value={form.nephropathie} onChange={(e) => set('nephropathie', e.target.value)} /></Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <Field label={t('pt.f.nephropathy')} className="sm:col-span-2 md:col-span-3"><Input value={form.nephropathie} onChange={(e) => set('nephropathie', e.target.value)} /></Field>
           <Field label={t('pt.f.first')}><Input type="date" value={form.dateDebutDialyse} onChange={(e) => set('dateDebutDialyse', e.target.value)} /></Field>
           <Field label={t('pt.f.firstCenter')}><Input type="date" value={form.datePremiereDialyseCentre} onChange={(e) => set('datePremiereDialyseCentre', e.target.value)} /></Field>
           <Field label={t('pt.f.freq')}><Input type="number" value={form.frequenceHebdo} onChange={(e) => set('frequenceHebdo', e.target.value)} /></Field>
@@ -372,7 +440,7 @@ export default function Patients() {
 
         {/* Abord vasculaire */}
         <SectionTitle>{t('pt.sec.access')}</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           <Field label={t('pt.f.accessType')}>
             <Select value={form.abord} onChange={(e) => set('abord', e.target.value)}>
               {Object.entries(L.abordLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -390,7 +458,7 @@ export default function Patients() {
 
         {/* Dialyse */}
         <SectionTitle>{t('pt.sec.dialysis')}</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           <Field label={t('pt.f.dialyzer')}><Input value={form.dialyseurType} onChange={(e) => set('dialyseurType', e.target.value)} placeholder="FX80 High-flux" /></Field>
           <Field label={t('pt.f.surface')}><Input value={form.dialyseurSurface} onChange={(e) => set('dialyseurSurface', e.target.value)} placeholder="1.8 m²" /></Field>
           <Field label={t('pt.f.anticoag')}><Input value={form.anticoagulant} onChange={(e) => set('anticoagulant', e.target.value)} placeholder="Héparine 5000 UI" /></Field>
@@ -398,7 +466,7 @@ export default function Patients() {
 
         {/* Sérologies & allergies */}
         <SectionTitle>{t('pt.sec.sero')}</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           {(['vhb', 'vhc', 'vih'] as const).map((k) => (
             <Field key={k} label={k.toUpperCase()}>
               <Select value={form[k]} onChange={(e) => set(k, e.target.value)}>
@@ -408,11 +476,11 @@ export default function Patients() {
               </Select>
             </Field>
           ))}
-          <label className="flex items-center gap-2 sm:col-span-3">
+          <label className="flex items-center gap-2 sm:col-span-2 md:col-span-3">
             <input type="checkbox" checked={form.vaccinationVHB} onChange={(e) => set('vaccinationVHB', e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
             <span className="text-sm text-slate-600">{t('pt.f.vaccVHB')}</span>
           </label>
-          <Field label={t('pt.f.allergies')} className="sm:col-span-3"><Textarea rows={2} value={form.allergies} onChange={(e) => set('allergies', e.target.value)} /></Field>
+          <Field label={t('pt.f.allergies')} className="sm:col-span-2 md:col-span-3"><Textarea rows={2} value={form.allergies} onChange={(e) => set('allergies', e.target.value)} /></Field>
         </div>
       </Modal>
 
@@ -437,9 +505,10 @@ export default function Patients() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-3 mt-5 flex items-center gap-2 first:mt-0">
-      <span className="text-xs font-bold uppercase tracking-wider text-brand-600">{children}</span>
-      <span className="h-px flex-1 bg-slate-100" />
+    <div className="mb-3 mt-6 flex items-center gap-3 first:mt-0">
+      <span className="h-1 w-1 rounded-full bg-brand-500 ring-4 ring-brand-100" />
+      <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-brand-700">{children}</span>
+      <span className="h-px flex-1 bg-slate-200" />
     </div>
   );
 }

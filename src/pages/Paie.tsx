@@ -220,7 +220,7 @@ function RatesTab({ canWrite }: { canWrite: boolean }) {
                   </button>
                 </td>
                 <td className="px-2 py-2">
-                  <input disabled={!canWrite} value={c.nom} onChange={(e) => setCot(c.id, { nom: e.target.value })} className="w-56 rounded border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-50" />
+                  <input disabled={!canWrite} value={c.nom} onChange={(e) => setCot(c.id, { nom: e.target.value })} className="w-full sm:w-56 rounded border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-50" />
                   {c.cadreOnly && <span className="ml-1.5 rounded-full bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-600">cadre</span>}
                 </td>
                 <td className="px-2 py-2"><input type="number" step="0.01" disabled={!canWrite} value={+(c.sal * 100).toFixed(2)} onChange={(e) => setCot(c.id, { sal: (Number(e.target.value) || 0) / 100 })} className="w-20 rounded border border-slate-300 px-2 py-1 text-right text-sm disabled:bg-slate-50" /></td>
@@ -409,8 +409,8 @@ function BulletinApercu({ staff, period, lang, onClose }: { staff: Staff; period
         </div>
 
         <div className="mt-10 flex justify-between text-center text-xs text-slate-500">
-          <div className="w-48"><div className="h-14 border-b border-slate-300" /><div className="mt-1">{t('pa.signEmployee')}</div></div>
-          <div className="w-48"><div className="h-14 border-b border-slate-300" /><div className="mt-1">{t('pa.signEmployer')}</div></div>
+          <div className="w-full sm:w-48"><div className="h-14 border-b border-slate-300" /><div className="mt-1">{t('pa.signEmployee')}</div></div>
+          <div className="w-full sm:w-48"><div className="h-14 border-b border-slate-300" /><div className="mt-1">{t('pa.signEmployer')}</div></div>
         </div>
 
         <div className="mt-6 border-t border-slate-200 pt-3 text-center text-[10px] text-slate-400">{t('pa.disclaimer')}</div>

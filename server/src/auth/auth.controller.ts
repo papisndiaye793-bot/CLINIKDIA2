@@ -11,11 +11,13 @@ export class AuthController {
 
   private cookieOpts() {
     const prod = process.env.NODE_ENV === 'production';
-    return { httpOnly: true, secure: prod, sameSite: 'strict' as const, maxAge: 30 * 60_000, path: '/' };
+    // In development allow a more permissive SameSite to ease local testing.
+    const sameSite = (prod ? 'strict' : 'lax') as 'strict' | 'lax';
+    return { httpOnly: true, secure: prod, sameSite, maxAge: 30 * 60_000, path: '/' };
   }
 
   // Limite renforcée sur le login : 5 tentatives / minute (anti-force brute, 8.5)
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Throttle({ default: { ttl: 60, limit: 5 } })
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { token, user } = await this.auth.login(dto.email, dto.password, dto.totp);
@@ -33,7 +35,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@Req() req: Request & { user: AuthUser }) {
-    return { id: req.user.sub, email: req.user.email, role: req.user.role, permissions: req.user.permissions ?? {} };
+    return {
+      id: req.user.sub,
+      email: req.user.email,
+      nom: req.user.nom,
+      prenom: req.user.prenom,
+      role: req.user.role,
+      permissions: req.user.permissions ?? {},
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -42,7 +51,7 @@ export class AuthController {
     return this.auth.changePassword(req.user.sub, dto.current, dto.next);
   }
 
-  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  @Throttle({ default: { ttl: 60, limit: 3 } })
   @Post('request-reset')
   requestReset(@Body() dto: RequestResetDto) {
     return this.auth.requestReset(dto.email);

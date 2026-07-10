@@ -50,6 +50,257 @@ export const fmtFileSize = (bytes?: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 };
 
+// ─── Export CSV (ouvrable dans Excel / LibreOffice) ──────────────────────────
+/** Échappe une valeur pour le format CSV (RFC 4180). */
+const csvCell = (v: string | number | null | undefined) => {
+  const s = v == null ? '' : String(v);
+  return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+/**
+ * Déclenche le téléchargement d'un CSV. Séparateur « ; » (attendu par Excel FR)
+ * et BOM UTF-8 pour que les accents s'affichent correctement.
+ */
+export function downloadCSV(filename: string, headers: string[], rows: (string | number | null | undefined)[][]) {
+  const lines = [headers, ...rows].map((r) => r.map(csvCell).join(';'));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.endsWith('.csv') ? filename : `${filename}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Nom de fichier sûr : minuscules, sans accents ni caractères spéciaux. */
+export const slugify = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+
+// ─── Export PDF (jsPDF + autotable) ──────────────────────────────────────────
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import type { ClinicSettings } from '@/types';
+
+type PdfListe = {
+  settings: ClinicSettings;
+  titre: string;
+  periode: string;
+  headers: string[];
+  rows: (string | number)[][];
+  /** Alignements par colonne (défaut : left). */
+  aligns?: ('left' | 'right' | 'center')[];
+  /** Lignes de synthèse (totaux) rendues sous le tableau. */
+  synthese?: { label: string; value: string }[];
+  /** Orientation de la page (défaut : paysage). */
+  orientation?: 'portrait' | 'landscape';
+};
+
+/**
+ * Génère et télécharge un PDF « liste » : en-tête clinique, tableau paginé,
+ * synthèse optionnelle et pied de page répété sur chaque page.
+ */
+export function downloadListePDF(filename: string, o: PdfListe) {
+  const doc = new jsPDF({ orientation: o.orientation ?? 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 12; // marge en mm
+  const brand: [number, number, number] = [13, 148, 136]; // teal ~ brand-600
+  const s = o.settings;
+  // Les polices standard de jsPDF (WinAnsi) ne connaissent pas l'espace fine
+  // insécable (U+202F/U+00A0) qu'Intl insère dans les montants — elle s'affiche
+  // sinon comme un « / » parasite. On la remplace par une espace normale.
+  const P = (v: unknown) => String(v ?? '').replace(/[\u202F\u00A0\u2009\u2007]/g, ' ');
+
+  // En-tête
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(15, 23, 42);
+  doc.text(P(s.nom), M, M + 4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text([P(s.adresse), `Tél : ${P(s.telephone)} · ${P(s.email)}`], M, M + 10);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(15, 118, 110);
+  doc.text(P(o.titre), pageW - M, M + 4, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(51, 65, 85);
+  doc.text(P(o.periode), pageW - M, M + 10, { align: 'right' });
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Édité le ${fmtDateLong(todayISO())}`, pageW - M, M + 15, { align: 'right' });
+
+  doc.setDrawColor(brand[0], brand[1], brand[2]);
+  doc.setLineWidth(0.5);
+  doc.line(M, M + 20, pageW - M, M + 20);
+
+  const columnStyles: Record<number, { halign: 'left' | 'right' | 'center' }> = {};
+  (o.aligns ?? []).forEach((a, i) => { if (a) columnStyles[i] = { halign: a }; });
+
+  const footer = P(`${s.nom} — ${s.adresse} · ${s.telephone} · ${s.email}`);
+
+  autoTable(doc, {
+    head: [o.headers.map(P)],
+    body: o.rows.map((r) => r.map((c) => P(c))),
+    startY: M + 24,
+    margin: { left: M, right: M, bottom: M + 8 },
+    tableWidth: pageW - 2 * M,
+    styles: { fontSize: 8, cellPadding: 2, textColor: [30, 41, 59], lineColor: [226, 232, 240], lineWidth: 0.1, overflow: 'linebreak', valign: 'top' },
+    headStyles: { fillColor: brand, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles,
+    didDrawPage: () => {
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.line(M, pageH - M - 3, pageW - M, pageH - M - 3);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(footer, pageW / 2, pageH - M + 1, { align: 'center' });
+    },
+  });
+
+  // Synthèse (totaux)
+  if (o.synthese?.length) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let y = ((doc as any).lastAutoTable?.finalY ?? M + 24) + 8;
+    if (y > pageH - M - 20) { doc.addPage(); y = M + 10; }
+    const boxW = 80;
+    const boxX = pageW - M - boxW;
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(boxX, y, boxW, o.synthese.length * 6 + 4, 1.5, 1.5, 'FD');
+    doc.setFontSize(8.5);
+    o.synthese.forEach((line, i) => {
+      const ly = y + 6 + i * 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(P(line.label), boxX + 4, ly);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(P(line.value), boxX + boxW - 4, ly, { align: 'right' });
+    });
+  }
+
+  doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+}
+
+// ─── Export PDF — Tableau de bord (KPI + analyse) ────────────────────────────
+type PdfDashboard = {
+  settings: ClinicSettings;
+  titre: string;
+  date: string;
+  kpis: { label: string; value: string; hint?: string }[];
+  /** Titres de section + paragraphes d'analyse générés à partir des données. */
+  analyse: { titre: string; points: string[] }[];
+};
+
+/** Génère un PDF portrait du tableau de bord : grille de KPI + analyse rédigée. */
+export function downloadDashboardPDF(filename: string, o: PdfDashboard) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 16;
+  const brand: [number, number, number] = [13, 148, 136];
+  const s = o.settings;
+  const P = (v: unknown) => String(v ?? '').replace(/[\u202F\u00A0\u2009\u2007]/g, ' ');
+
+  // En-tête
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42);
+  doc.text(P(s.nom), M, M + 4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${P(s.adresse)} · ${P(s.telephone)}`, M, M + 10);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(15, 118, 110);
+  doc.text(P(o.titre), pageW - M, M + 4, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(51, 65, 85);
+  doc.text(P(o.date), pageW - M, M + 10, { align: 'right' });
+  doc.setDrawColor(brand[0], brand[1], brand[2]);
+  doc.setLineWidth(0.5);
+  doc.line(M, M + 15, pageW - M, M + 15);
+
+  // Grille de KPI (2 colonnes)
+  let y = M + 24;
+  const cols = 2;
+  const gap = 6;
+  const cardW = (pageW - 2 * M - gap * (cols - 1)) / cols;
+  const cardH = 22;
+  o.kpis.forEach((k, i) => {
+    const cx = M + (i % cols) * (cardW + gap);
+    const cy = y + Math.floor(i / cols) * (cardH + gap);
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'FD');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(P(k.label).toUpperCase(), cx + 5, cy + 7);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(15, 23, 42);
+    doc.text(P(k.value), cx + 5, cy + 15);
+    if (k.hint) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(P(k.hint), cx + 5, cy + 19.5);
+    }
+  });
+  y += Math.ceil(o.kpis.length / cols) * (cardH + gap) + 6;
+
+  // Analyse & interprétation
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(15, 118, 110);
+  doc.text('Analyse & interprétation', M, y);
+  y += 7;
+
+  for (const sec of o.analyse) {
+    if (y > pageH - M - 20) { doc.addPage(); y = M + 6; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    doc.text(P(sec.titre), M, y);
+    y += 5.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(51, 65, 85);
+    for (const pt of sec.points) {
+      const lines = doc.splitTextToSize(P(pt), pageW - 2 * M - 5) as string[];
+      if (y + lines.length * 5 > pageH - M - 12) { doc.addPage(); y = M + 6; }
+      doc.setFillColor(brand[0], brand[1], brand[2]);
+      doc.circle(M + 1.2, y - 1.4, 0.8, 'F');
+      doc.text(lines, M + 5, y);
+      y += lines.length * 5 + 1.5;
+    }
+    y += 3;
+  }
+
+  // Pied de page
+  const footer = P(`${s.nom} — ${s.adresse} · ${s.telephone} · ${s.email}`);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.2);
+  doc.line(M, pageH - M + 2, pageW - M, pageH - M + 2);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(footer, pageW / 2, pageH - M + 6, { align: 'center' });
+
+  doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+}
+
 export const readFileAsDataURL = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
