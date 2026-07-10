@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Wallet, Users2, Receipt, Banknote, Printer, X, Droplets, Plus, SlidersHorizontal, Save, RotateCcw, Trash2, Power } from 'lucide-react';
+import { Wallet, Users2, Receipt, Banknote, Printer, X, Droplets, Plus, SlidersHorizontal, Save, RotateCcw, Trash2, Power, FileText } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
 import { useLabels } from '@/lib/labels';
 import { PageHeader, Card, Button, Table, Th, Td, StatCard, Input, Modal } from '@/components/ui';
-import { cn, fmtMoney, initials } from '@/lib/utils';
+import { cn, fmtMoney, initials, downloadListePDF, slugify } from '@/lib/utils';
 import { computePaie, estCadre, DEFAULT_BAREME, PLAFOND_MAX, type PaieBareme, type Cotisation } from '@/lib/paie';
 import type { Staff } from '@/types';
 
@@ -37,6 +37,33 @@ export default function Paie() {
     );
   }, [employes, paieBareme]);
 
+  const exportPDF = () => {
+    downloadListePDF(`paie-${slugify(period)}`, {
+      settings,
+      titre: t('pa.title'),
+      periode: periodLabel(period, lang),
+      headers: [t('pa.employee'), t('cf.role'), t('pa.category'), t('pa.gross'), t('pa.deductions'), t('pa.netToPay')],
+      aligns: ['left', 'left', 'left', 'right', 'right', 'right'],
+      rows: employes.map((s) => {
+        const p = computePaie({ salaireBase: s.salaireBase ?? 0, cadre: s.cadre ?? estCadre(s.role) }, paieBareme);
+        return [
+          `${s.role === 'nephrologue' ? 'Dr ' : ''}${s.prenom} ${s.nom} (${s.code})`,
+          L.roleLabel[s.role].label,
+          (s.cadre ?? estCadre(s.role)) ? t('pa.cadre') : t('pa.nonCadre'),
+          fmtMoney(p.brut, settings.devise),
+          fmtMoney(p.totalRetenues, settings.devise),
+          fmtMoney(p.netAPayer, settings.devise),
+        ];
+      }),
+      synthese: [
+        { label: t('pa.grossMass'), value: fmtMoney(totaux.brut, settings.devise) },
+        { label: t('pa.deductions'), value: fmtMoney(totaux.retenues, settings.devise) },
+        { label: t('pa.netMass'), value: fmtMoney(totaux.net, settings.devise) },
+        { label: t('pa.employerCharges'), value: fmtMoney(totaux.patronales, settings.devise) },
+      ],
+    });
+  };
+
   if (!canAccess('paie')) {
     return (
       <div>
@@ -60,6 +87,7 @@ export default function Paie() {
           tab === 'bulletins' ? (
             <div className="flex items-center gap-2">
               <Input type="month" value={period} onChange={(e) => setPeriod(e.target.value || currentPeriod())} className="w-40" />
+              <Button variant="secondary" onClick={exportPDF} disabled={employes.length === 0}><FileText size={16} /> {t('common.downloadPdf')}</Button>
               <Button onClick={() => setNewOpen(true)}><Plus size={16} /> {t('pa.newSlip')}</Button>
             </div>
           ) : undefined

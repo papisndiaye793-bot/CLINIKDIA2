@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Wallet, TrendingDown, Clock, Plus, Paperclip, Upload, Trash2, Landmark, FileCheck2, HandCoins, X, Download, FileText, Printer } from 'lucide-react';
+import { Wallet, TrendingDown, Clock, Plus, Paperclip, Upload, Trash2, Landmark, FileCheck2, HandCoins, X, Download, FileText } from 'lucide-react';
 import { RapportListe } from '@/components/RapportListe';
 import { useStore } from '@/store/useStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,7 +108,7 @@ export default function Depenses() {
         subtitle={t('de.subtitle')}
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setRapport(true)}><Printer size={16} /> {t('common.printList')}</Button>
+            <Button variant="secondary" onClick={() => setRapport(true)}><FileText size={16} /> {t('common.downloadPdf')}</Button>
             {editable && <Button onClick={openCreate}><Plus size={16} /> {t('de.new')}</Button>}
           </div>
         }

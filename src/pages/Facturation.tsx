@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Receipt, Plus, Wallet, AlertCircle, CheckCircle2, CreditCard, Printer, X, Droplets } from 'lucide-react';
+import { Receipt, Plus, Wallet, AlertCircle, CheckCircle2, CreditCard, Printer, X, Droplets, FileText } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useStore } from '@/store/useStore';
 import {
@@ -79,7 +79,7 @@ export default function Facturation() {
         subtitle={t('fa.subtitle').replace('{n}', String(factures.length)).replace('{p}', fmtMoney(settings.tarifSeance, settings.devise))}
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setRapport(true)}><Printer size={16} /> {t('common.printList')}</Button>
+            <Button variant="secondary" onClick={() => setRapport(true)}><FileText size={16} /> {t('common.downloadPdf')}</Button>
             {editable && <Button onClick={() => setOpen(true)}><Plus size={16} /> {t('fa.new')}</Button>}
           </div>
         }
