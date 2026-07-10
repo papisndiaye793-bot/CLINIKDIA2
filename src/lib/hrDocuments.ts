@@ -62,19 +62,44 @@ Il a été arrêté et convenu ce qui suit :`
   );
 }
 
+const estCadre = (ctx: DocCtx) => (val(ctx, 'statutPro') || (ctx.s.cadre ? 'Cadre' : 'Non-cadre')).toLowerCase().startsWith('cadre');
+
+/** Article « Classification & statut » (cadre / non-cadre, catégorie CCNI). */
+function articleClassification(ctx: DocCtx, num: number): string {
+  const statut = val(ctx, 'statutPro') || (ctx.s.cadre ? 'Cadre' : 'Non-cadre');
+  const cat = val(ctx, 'categorie');
+  const catPhrase = cat
+    ? `Il/elle est classé(e) dans la catégorie professionnelle « ${cat} »`
+    : `Il/elle est classé(e) dans la catégorie professionnelle correspondant à sa qualification`;
+  const cadrePhrase = estCadre(ctx)
+    ? ` En sa qualité de cadre, il/elle relève du régime de retraite complémentaire des cadres de l'IPRES et est soumis(e) aux obligations particulières attachées à ce statut (disponibilité, confidentialité renforcée, devoir de loyauté).`
+    : '';
+  return (
+`Article ${num} — Classification et statut
+Le/la Salarié(e) est engagé(e) sous le statut de ${statut}. ${catPhrase} de la Convention collective nationale interprofessionnelle (CCNI) et de la grille de classification applicable à l'établissement.${cadrePhrase}`
+  );
+}
+
 /** Articles communs (protection sociale, obligations, rupture, droit applicable). */
 function articlesCommuns(ctx: DocCtx, dernierArticle: number): string {
+  const cadre = estCadre(ctx);
+  const retraite = cadre
+    ? "l'Institution de Prévoyance Retraite du Sénégal (IPRES), y compris le régime complémentaire des cadres,"
+    : "l'Institution de Prévoyance Retraite du Sénégal (IPRES)";
   return (
 `Article ${dernierArticle} — Protection sociale
-L'Employeur procède à l'immatriculation du/de la Salarié(e) auprès de la Caisse de Sécurité Sociale et de l'Institution de Prévoyance Retraite du Sénégal (IPRES), ainsi qu'à son affiliation à une Institution de Prévoyance Maladie (IPM), conformément à la réglementation en vigueur.
+L'Employeur procède à l'immatriculation du/de la Salarié(e) auprès de la Caisse de Sécurité Sociale et de ${retraite} ainsi qu'à son affiliation à une Institution de Prévoyance Maladie (IPM), conformément à la réglementation en vigueur. Les cotisations sociales sont réparties entre l'Employeur et le/la Salarié(e) selon les taux légaux.
 
 Article ${dernierArticle + 1} — Obligations et confidentialité
-Le/la Salarié(e) s'engage à exercer ses fonctions avec diligence et à respecter le règlement intérieur, le secret professionnel et médical, ainsi que la confidentialité des données des patients, conformément au Code du travail et à la déontologie médicale.
+Le/la Salarié(e) s'engage à exercer ses fonctions avec diligence, probité et loyauté, à respecter le règlement intérieur, les consignes d'hygiène et de sécurité, le secret professionnel et médical, ainsi que la confidentialité des données des patients, conformément au Code du travail et à la déontologie médicale. Toute infraction expose le/la Salarié(e) aux sanctions disciplinaires prévues par le règlement intérieur.
 
-Article ${dernierArticle + 2} — Rupture du contrat
-La rupture du présent contrat obéit aux dispositions du Code du travail du Sénégal (Loi n° 97-17 du 1er décembre 1997) et de la Convention collective nationale interprofessionnelle, notamment en matière de préavis et d'indemnités.
+Article ${dernierArticle + 2} — Discipline et sanctions
+Le/la Salarié(e) est soumis(e) au pouvoir disciplinaire de l'Employeur dans les conditions fixées par le règlement intérieur et le Code du travail (avertissement, mise à pied, licenciement pour faute).
 
-Article ${dernierArticle + 3} — Droit applicable et différends
+Article ${dernierArticle + 3} — Rupture du contrat
+La rupture du présent contrat obéit aux dispositions du Code du travail du Sénégal (Loi n° 97-17 du 1er décembre 1997) et de la CCNI, notamment en matière de préavis, d'indemnité de licenciement et d'indemnité de départ à la retraite, dont la durée et le montant varient selon l'ancienneté et le statut (cadre / non-cadre) du/de la Salarié(e).
+
+Article ${dernierArticle + 4} — Droit applicable et différends
 Le présent contrat est régi par le droit sénégalais. Tout différend relatif à sa formation, son exécution ou sa rupture relève, à défaut de règlement amiable, de la compétence de l'Inspection du Travail et, le cas échéant, du Tribunal du Travail territorialement compétent.
 
 Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}, en deux (2) exemplaires originaux.`
@@ -84,7 +109,12 @@ Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || c
 const champsSignature: DocField[] = [
   { key: 'signataire', label: 'Signataire (Employeur)', default: () => 'La Direction' },
   { key: 'qualiteSignataire', label: 'Qualité du signataire', default: () => 'Directeur/Directrice' },
-  { key: 'lieu', label: 'Fait à', default: (c) => (c.c.adresse?.split(',').pop() || 'Dakar').trim() },
+  { key: 'lieu', label: 'Fait à', default: (c) => {
+    // On privilégie la ville : avant-dernier segment de l'adresse (le dernier
+    // étant généralement le pays), sinon « Dakar ».
+    const parts = (c.c.adresse || '').split(',').map((x) => x.trim()).filter(Boolean);
+    return (parts.length >= 2 ? parts[parts.length - 2] : parts[0]) || 'Dakar';
+  } },
   { key: 'dateEdition', label: "Date d'édition", type: 'date', default: (c) => c.today },
 ];
 
@@ -96,9 +126,12 @@ export const DOC_MODELES: DocModele[] = [
     description: 'Engagement permanent — Code du travail sénégalais',
     fields: [
       { key: 'poste', label: 'Poste / Fonction', default: (c) => posteDefaut(c.s) },
+      { key: 'statutPro', label: 'Statut', default: (c) => (c.s.cadre ? 'Cadre' : 'Non-cadre') },
+      { key: 'categorie', label: 'Catégorie / classification (CCNI)', default: () => '' },
       { key: 'dateDebut', label: "Date de prise de fonction", type: 'date', default: (c) => c.s.dateEmbauche ?? c.today },
-      { key: 'periodeEssai', label: "Période d'essai", default: () => 'trois (3) mois renouvelable une fois' },
+      { key: 'periodeEssai', label: "Période d'essai", default: (c) => (c.s.cadre ? 'six (6) mois renouvelable une fois' : 'trois (3) mois renouvelable une fois') },
       { key: 'salaire', label: 'Salaire brut mensuel', type: 'number', default: (c) => String(c.s.salaireBase ?? '') },
+      { key: 'primes', label: 'Primes et indemnités', default: () => "prime d'ancienneté, indemnité de transport et de responsabilité selon la CCNI" },
       { key: 'lieuTravail', label: 'Lieu de travail', default: (c) => c.c.adresse },
       { key: 'horaire', label: 'Durée hebdomadaire', default: () => '40 heures' },
       ...champsSignature,
@@ -112,19 +145,21 @@ L'Employeur engage ${civilite(ctx.s)} ${nomComplet(ctx.s)} par contrat de travai
 Article 2 — Fonctions
 Le/la Salarié(e) est engagé(e) en qualité de ${val(ctx, 'poste') || posteDefaut(ctx.s)}. Il/elle exercera ses fonctions sous l'autorité de la Direction et pourra se voir confier toute tâche connexe correspondant à sa qualification.
 
-Article 3 — Période d'essai
-Le présent contrat ne devient définitif qu'à l'issue d'une période d'essai de ${val(ctx, 'periodeEssai') || 'trois (3) mois'}, durant laquelle chacune des parties peut y mettre fin sans préavis ni indemnité.
+${articleClassification(ctx, 3)}
 
-Article 4 — Rémunération
-En contrepartie de son travail, le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, payable à terme échu, sous déduction des cotisations sociales et fiscales en vigueur.
+Article 4 — Période d'essai
+Le présent contrat ne devient définitif qu'à l'issue d'une période d'essai de ${val(ctx, 'periodeEssai') || 'trois (3) mois'}, durant laquelle chacune des parties peut y mettre fin sans préavis ni indemnité, conformément au Code du travail.
 
-Article 5 — Lieu et durée du travail
-Le/la Salarié(e) exercera ses fonctions à ${val(ctx, 'lieuTravail') || ctx.c.adresse}, pour une durée hebdomadaire de ${val(ctx, 'horaire') || '40 heures'}, selon les plannings établis par l'Employeur.
+Article 5 — Rémunération
+En contrepartie de son travail, le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, payable à terme échu, sous déduction des cotisations sociales et fiscales en vigueur. À ce salaire de base s'ajoutent, le cas échéant, ${val(ctx, 'primes') || 'les primes et indemnités prévues par la CCNI'}.
 
-Article 6 — Congés payés
-Le/la Salarié(e) bénéficie des congés payés dans les conditions fixées par le Code du travail, soit deux (2) jours ouvrables par mois de service effectif.
+Article 6 — Lieu et durée du travail
+Le/la Salarié(e) exercera ses fonctions à ${val(ctx, 'lieuTravail') || ctx.c.adresse}, pour une durée hebdomadaire de ${val(ctx, 'horaire') || '40 heures'}, selon les plannings établis par l'Employeur. Les heures effectuées au-delà de la durée légale ouvrent droit à majoration dans les conditions prévues par la réglementation.
 
-${articlesCommuns(ctx, 7)}`
+Article 7 — Congés payés
+Le/la Salarié(e) bénéficie des congés payés dans les conditions fixées par le Code du travail, soit deux (2) jours ouvrables par mois de service effectif, majorés le cas échéant en fonction de l'ancienneté et des charges de famille.
+
+${articlesCommuns(ctx, 8)}`
     ),
   },
   {
@@ -133,10 +168,14 @@ ${articlesCommuns(ctx, 7)}`
     description: 'Engagement à terme — Code du travail sénégalais',
     fields: [
       { key: 'poste', label: 'Poste / Fonction', default: (c) => posteDefaut(c.s) },
+      { key: 'statutPro', label: 'Statut', default: (c) => (c.s.cadre ? 'Cadre' : 'Non-cadre') },
+      { key: 'categorie', label: 'Catégorie / classification (CCNI)', default: () => '' },
       { key: 'dateDebut', label: 'Date de début', type: 'date', default: (c) => c.s.dateEmbauche ?? c.today },
       { key: 'dateFin', label: 'Date de fin', type: 'date', default: (c) => c.s.dateFinContrat ?? '' },
       { key: 'motif', label: 'Motif du recours au CDD', default: () => "surcroît temporaire d'activité" },
+      { key: 'periodeEssai', label: "Période d'essai", default: () => "un (1) mois" },
       { key: 'salaire', label: 'Salaire brut mensuel', type: 'number', default: (c) => String(c.s.salaireBase ?? '') },
+      { key: 'primes', label: 'Primes et indemnités', default: () => "les indemnités prévues par la CCNI" },
       { key: 'lieuTravail', label: 'Lieu de travail', default: (c) => c.c.adresse },
       ...champsSignature,
     ],
@@ -149,19 +188,24 @@ L'Employeur engage ${civilite(ctx.s)} ${nomComplet(ctx.s)} par contrat de travai
 Article 2 — Fonctions
 Le/la Salarié(e) est engagé(e) en qualité de ${val(ctx, 'poste') || posteDefaut(ctx.s)}, sous l'autorité de la Direction.
 
-Article 3 — Rémunération
-Le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, sous déduction des cotisations sociales et fiscales en vigueur.
+${articleClassification(ctx, 3)}
 
-Article 4 — Lieu de travail
-Le/la Salarié(e) exercera ses fonctions à ${val(ctx, 'lieuTravail') || ctx.c.adresse}.
+Article 4 — Période d'essai
+Le présent contrat comporte une période d'essai de ${val(ctx, 'periodeEssai') || 'un (1) mois'}, durant laquelle chacune des parties peut y mettre fin sans préavis ni indemnité.
 
-Article 5 — Congés payés
+Article 5 — Rémunération
+Le/la Salarié(e) percevra un salaire brut mensuel de ${money(ctx, val(ctx, 'salaire'))}, sous déduction des cotisations sociales et fiscales en vigueur, outre ${val(ctx, 'primes') || 'les indemnités prévues par la CCNI'}.
+
+Article 6 — Lieu de travail
+Le/la Salarié(e) exercera ses fonctions à ${val(ctx, 'lieuTravail') || ctx.c.adresse}, selon les plannings établis par l'Employeur.
+
+Article 7 — Congés payés
 Le/la Salarié(e) bénéficie des congés payés au prorata de son temps de présence, conformément au Code du travail.
 
-Article 6 — Fin du contrat
-Le contrat prend fin de plein droit à l'échéance du terme fixé à l'article 1, sans préavis. Le cas échéant, une indemnité de fin de contrat sera versée dans les conditions légales.
+Article 8 — Fin du contrat
+Le contrat prend fin de plein droit à l'échéance du terme fixé à l'article 1, sans préavis. Une indemnité de fin de contrat égale à la fraction légale de la rémunération totale brute sera versée dans les conditions prévues par le Code du travail, sauf conclusion d'un contrat à durée indéterminée à l'issue du terme.
 
-${articlesCommuns(ctx, 7)}`
+${articlesCommuns(ctx, 9)}`
     ),
   },
   {

@@ -13,17 +13,17 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import { Users, Activity, Gauge, HeartPulse } from 'lucide-react';
+import { Users, Activity, Gauge, HeartPulse, FileText } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui';
-import { age } from '@/lib/utils';
+import { Card, CardHeader, PageHeader, StatCard, Button } from '@/components/ui';
+import { age, downloadDashboardPDF, slugify, todayISO } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import { useT } from '@/lib/i18n';
 
 const COLORS = ['#1a5fe0', '#0d9488', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 
 export default function Reporting() {
-  const { patients, seances, machines } = useStore();
+  const { patients, seances, machines, settings } = useStore();
   const { t } = useT();
   const L = useLabels();
 
@@ -76,9 +76,76 @@ export default function Reporting() {
     };
   });
 
+  const exportPDF = () => {
+    const hommes = actifs.filter((p) => p.sexe === 'M').length;
+    const femmes = actifs.length - hommes;
+    const favCount = actifs.filter((p) => p.abord === 'FAV').length;
+    const favRate = actifs.length ? Math.round((favCount / actifs.length) * 100) : 0;
+    const topNephro = nephroData[0];
+    const topAbord = abordData.slice().sort((a, b) => b.value - a.value)[0];
+    const volDebut = semaines[0]?.seances ?? 0;
+    const volFin = semaines[semaines.length - 1]?.seances ?? 0;
+    const volVar = volDebut === 0 ? 0 : Math.round(((volFin - volDebut) / volDebut) * 100);
+    const ageMoyen = actifs.length ? Math.round(actifs.reduce((a, p) => a + (age(p.dateNaissance) as number), 0) / actifs.length) : 0;
+
+    const kpis = [
+      { label: t('rp.activeFile'), value: String(actifs.length), hint: `${hommes} H · ${femmes} F` },
+      { label: t('rp.sessionsDone'), value: String(terminées.length) },
+      { label: t('rp.ktvAvg'), value: String(ktvMoyen), hint: 'cible ≥ 1,2' },
+      { label: t('rp.atTarget'), value: `${ktvCible}%`, hint: 'séances à la cible Kt/V' },
+    ];
+
+    const filePoints = [
+      `La file active compte ${actifs.length} patient(s) dialysé(s) : ${hommes} homme(s) et ${femmes} femme(s), d'âge moyen ${ageMoyen} ans.`,
+      topNephro
+        ? `La néphropathie causale la plus fréquente est « ${topNephro.name} » (${topNephro.value} patient(s), soit ${Math.round((topNephro.value / (actifs.length || 1)) * 100)} %).`
+        : 'Les néphropathies causales ne sont pas encore renseignées.',
+    ];
+
+    const adequationPoints = [
+      ktvMoyen === '—'
+        ? "Aucune séance terminée avec Kt/V renseigné : l'adéquation de dialyse ne peut être évaluée sur la période."
+        : `Le Kt/V moyen est de ${ktvMoyen}, et ${ktvCible} % des séances atteignent la cible d'adéquation (Kt/V ≥ 1,2) sur ${terminées.length} séance(s) évaluée(s).`,
+      ktvCible >= 80
+        ? "L'adéquation de dialyse est satisfaisante et conforme aux recommandations."
+        : ktvCible >= 60
+          ? "L'adéquation est perfectible : revoir la durée, le débit et la prescription des séances sous la cible."
+          : "L'adéquation est insuffisante : un audit des prescriptions et des abords vasculaires est recommandé.",
+    ];
+
+    const abordPoints = [
+      topAbord ? `L'abord vasculaire dominant est « ${topAbord.name} » (${Math.round((topAbord.value / (actifs.length || 1)) * 100)} % des patients).` : '',
+      favRate >= 60
+        ? `Le taux de fistule artério-veineuse (FAV) est de ${favRate} %, conforme à l'objectif de privilégier l'abord natif (moindre risque infectieux).`
+        : `Le taux de FAV n'est que de ${favRate} % : encourager la création d'abords natifs pour réduire le recours aux cathéters et le risque infectieux.`,
+    ].filter(Boolean);
+
+    const activitePoints = [
+      `Volume d'activité : ${volFin} séance(s) sur la dernière semaine, contre ${volDebut} il y a quatre semaines (${volVar === 0 ? 'activité stable' : volVar > 0 ? `+${volVar} %` : `${volVar} %`}).`,
+      `${machines.length} générateur(s) au parc pour assurer cette activité.`,
+    ];
+
+    downloadDashboardPDF(`reporting-medical-${slugify(todayISO())}`, {
+      settings,
+      titre: t('rp.title'),
+      date: new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      kpis,
+      analyse: [
+        { titre: 'File active & épidémiologie', points: filePoints },
+        { titre: 'Adéquation de dialyse (Kt/V)', points: adequationPoints },
+        { titre: 'Abords vasculaires', points: abordPoints },
+        { titre: "Volume d'activité", points: activitePoints },
+      ],
+    });
+  };
+
   return (
     <div>
-      <PageHeader title={t('rp.title')} subtitle={t('rp.subtitle')} />
+      <PageHeader
+        title={t('rp.title')}
+        subtitle={t('rp.subtitle')}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
+      />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t('rp.activeFile')} value={actifs.length} icon={<Users size={18} />} tone="blue" />
