@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, UserPlus, Trash2 } from 'lucide-react';
+import { Plus, Search, UserPlus, Trash2, FileText } from 'lucide-react';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
 import { useStore } from '@/store/useStore';
 import {
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
-import { age, fmtDate, initials } from '@/lib/utils';
+import { age, fmtDate, initials, downloadListePDF, slugify } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import type { Patient, Sexe, StatutPatient, AbordVasculaire, PriseEnCharge, SituationFamiliale, Serologie } from '@/types';
 
@@ -74,7 +74,7 @@ const emptyForm = {
 };
 
 export default function Patients() {
-  const { patients, staff, addPatient, updatePatient, deletePatient, setPatients } = useStore();
+  const { patients, staff, settings, addPatient, updatePatient, deletePatient, setPatients } = useStore();
   const { canWrite, canDelete } = useAuth();
   const { t } = useT();
   const L = useLabels();
@@ -100,6 +100,44 @@ export default function Patients() {
   }, [patients, q, filtreStatut]);
 
   const set = (k: keyof typeof form, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
+
+  const nephrologueName = (id: string) => {
+    const n = staff.find((s) => s.id === id);
+    return n ? `Dr ${n.prenom} ${n.nom}` : '—';
+  };
+
+  const exportPDF = () => {
+    const periode = filtreStatut
+      ? `${t('common.status')} : ${L.statutPatient[filtreStatut as StatutPatient]?.label ?? filtreStatut}`
+      : t('pt.allStatus');
+    downloadListePDF(`liste-patients-${slugify(periode)}`, {
+      settings,
+      titre: t('nav.patients'),
+      periode,
+      headers: [
+        t('pt.col.patient'),
+        t('pt.f.sex'),
+        t('pt.col.age'),
+        t('pt.f.phone'),
+        t('pt.col.access'),
+        t('pt.col.coverage'),
+        t('pt.col.start'),
+        t('pt.f.neph'),
+        t('common.status'),
+      ],
+      rows: filtered.map((p) => [
+        `${p.prenom} ${p.nom} (${p.code})`,
+        p.sexe === 'M' ? t('pt.man') : t('pt.woman'),
+        `${age(p.dateNaissance)} ${t('pt.ageUnit')}`,
+        p.telephone,
+        L.abordLabel[p.abord],
+        L.priseEnChargeLabel[p.priseEnCharge],
+        fmtDate(p.dateDebutDialyse),
+        nephrologueName(p.nephrologueId),
+        L.statutPatient[p.statut].label,
+      ]),
+    });
+  };
 
   useEffect(() => {
     apiGet<Patient[]>('/patients')
@@ -224,11 +262,16 @@ export default function Patients() {
         title={t('nav.patients')}
         subtitle={t('pt.subtitle').replace('{n}', String(patients.length)).replace('{a}', String(patients.filter((p) => p.statut === 'actif').length))}
         action={
-          editable ? (
-            <Button onClick={openCreate}>
-              <UserPlus size={16} /> {t('pt.new')}
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={exportPDF} disabled={filtered.length === 0}>
+              <FileText size={16} /> Télécharger en PDF
             </Button>
-          ) : undefined
+            {editable && (
+              <Button onClick={openCreate}>
+                <UserPlus size={16} /> {t('pt.new')}
+              </Button>
+            )}
+          </div>
         }
       />
 
