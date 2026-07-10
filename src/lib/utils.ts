@@ -395,7 +395,14 @@ export function downloadDocumentPDF(filename: string, o: PdfDocument) {
     return doc.getTextWidth(w.text);
   };
   const drawLine = (words: Word[]) => {
-    if (y > pageH - M - 6) { footer(); doc.addPage(); y = M; }
+    if (y > pageH - M - 6) {
+      footer();
+      doc.addPage();
+      y = M;
+      // footer() a laissé la police en taille 7 / gris clair : on rétablit la
+      // taille et la couleur du corps (setFont ci-dessous ne règle que la graisse).
+      applyBodyStyle();
+    }
     let x = M;
     // Regroupe les mots consécutifs de même graisse en un seul tracé.
     let i = 0;
