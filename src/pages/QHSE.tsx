@@ -10,6 +10,7 @@ import {
   CalendarClock,
   Droplet,
   Award,
+  FileText,
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { useStore } from '@/store/useStore';
@@ -35,7 +36,7 @@ import {
   DefRow,
   EmptyState,
 } from '@/components/ui';
-import { fmtDate, todayISO } from '@/lib/utils';
+import { fmtDate, todayISO, downloadDashboardPDF, slugify } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import { useT } from '@/lib/i18n';
 import type { Extincteur, StatutConformite, Controle, DomaineQHSE, Certification, StatutCertification } from '@/types';
@@ -58,7 +59,7 @@ export default function QHSE() {
     extincteurs, addExtincteur, updateExtincteur, deleteExtincteur,
     controles, addControle, updateControle, deleteControle,
     certifications, addCertification, updateCertification, deleteCertification,
-    staff, logAction,
+    staff, settings, logAction,
   } = useStore();
   const { canWrite, canDelete } = useAuth();
   const { t } = useT();
@@ -81,9 +82,72 @@ export default function QHSE() {
     { key: 'non_conforme', name: t('qh.nonCompliant'), value: nonConformes },
   ].filter((d) => d.value > 0);
 
+  const exportPDF = () => {
+    const today = todayISO();
+    const extRetard = extincteurs.filter((e) => e.dateProchainControle < today).length;
+    const ctlRetard = controles.filter((c) => c.dateProchainControle < today).length;
+    const retards = extRetard + ctlRetard;
+    const certsExpirees = certifications.filter((c) => c.dateExpiration && c.dateExpiration < today).length;
+    const certsValides = certifications.filter((c) => c.statut === 'valide').length;
+
+    const kpis = [
+      { label: t('qh.rate'), value: `${taux}%`, hint: `${conformes}/${total} ${t('qh.compliant').toLowerCase()}` },
+      { label: t('qh.compliant'), value: String(conformes) },
+      { label: t('qh.toCheck'), value: String(aControler) },
+      { label: t('qh.nonCompliant'), value: String(nonConformes) },
+    ];
+
+    const conformitePoints = [
+      `Le taux de conformité global est de ${taux} % (${conformes} éléments conformes sur ${total} contrôlés : extincteurs et contrôles réglementaires).`,
+      taux >= 80
+        ? 'Le niveau de conformité est satisfaisant et conforme aux exigences réglementaires ; maintenir le rythme des contrôles périodiques.'
+        : taux >= 60
+          ? 'Le niveau de conformité est perfectible : planifier rapidement les contrôles des éléments non conformes ou en attente.'
+          : "Le niveau de conformité est insuffisant et expose l'établissement à un risque réglementaire : un plan d'action correctif prioritaire est requis.",
+    ];
+
+    const echeancesPoints = [
+      retards === 0
+        ? 'Aucun contrôle en retard : les échéances de vérification sont respectées.'
+        : `${retards} contrôle(s) en retard (${extRetard} extincteur(s), ${ctlRetard} contrôle(s) réglementaire(s)) — à régulariser sans délai.`,
+      `${nonConformes} élément(s) non conforme(s) et ${aControler} à contrôler nécessitent une action de mise en conformité.`,
+    ];
+
+    const incendiePoints = [
+      `Parc de sécurité incendie : ${extincteurs.length} extincteur(s) recensé(s), dont ${extincteurs.filter((e) => e.statut === 'conforme').length} conforme(s).`,
+      extRetard
+        ? `${extRetard} extincteur(s) au-delà de leur date de prochain contrôle : vérification à programmer avec le prestataire agréé.`
+        : "Tous les extincteurs sont dans leur période de validité de contrôle.",
+    ];
+
+    const certPoints = [
+      `${certifications.length} certification(s) suivie(s), dont ${certsValides} en cours de validité.`,
+      certsExpirees
+        ? `${certsExpirees} certification(s) expirée(s) : engager le renouvellement auprès des organismes concernés.`
+        : 'Aucune certification expirée à ce jour.',
+    ];
+
+    downloadDashboardPDF(`qhse-tableau-de-bord-${slugify(todayISO())}`, {
+      settings,
+      titre: t('qh.title'),
+      date: new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      kpis,
+      analyse: [
+        { titre: 'Conformité globale', points: conformitePoints },
+        { titre: 'Échéances & non-conformités', points: echeancesPoints },
+        { titre: 'Sécurité incendie', points: incendiePoints },
+        { titre: 'Certifications', points: certPoints },
+      ],
+    });
+  };
+
   return (
     <div>
-      <PageHeader title={t('qh.title')} subtitle={t('qh.subtitle')} />
+      <PageHeader
+        title={t('qh.title')}
+        subtitle={t('qh.subtitle')}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
+      />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t('qh.rate')} value={`${taux}%`} icon={<Gauge size={18} />} tone={taux >= 80 ? 'green' : taux >= 60 ? 'amber' : 'red'} hint={`${conformes}/${total}`} />

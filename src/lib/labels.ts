@@ -21,6 +21,7 @@ import type {
   StatutCertification,
   CategorieDepense,
   StatutDepense,
+  StatutPresence,
   Lang,
 } from '@/types';
 
@@ -118,6 +119,12 @@ const T = {
     en_cours: { fr: 'En cours', en: 'In progress', tone: 'amber' },
     expiree: { fr: 'Expirée', en: 'Expired', tone: 'red' },
   } as Record<StatutCertification, Toned>,
+  statutPresence: {
+    present: { fr: 'En poste', en: 'On duty', tone: 'green' },
+    conge: { fr: 'En congé', en: 'On leave', tone: 'blue' },
+    maladie: { fr: 'En maladie', en: 'Sick leave', tone: 'amber' },
+    autre: { fr: 'Absent (autre)', en: 'Absent (other)', tone: 'slate' },
+  } as Record<StatutPresence, Toned>,
 };
 
 const P = {
@@ -197,6 +204,7 @@ function build(lang: Lang) {
     domaineQHSELabel: resolveToned(T.domaineQHSELabel, lang),
     statutDepense: resolveToned(T.statutDepense, lang),
     statutCertification: resolveToned(T.statutCertification, lang),
+    statutPresence: resolveToned(T.statutPresence, lang),
     abordLabel: resolvePlain(P.abordLabel, lang),
     priseEnChargeLabel: resolvePlain(P.priseEnChargeLabel, lang),
     creneauLabel: resolvePlain(P.creneauLabel, lang),
@@ -229,6 +237,7 @@ export const auditActionLabel = FR.auditActionLabel;
 export const statutConformite = FR.statutConformite;
 export const domaineQHSELabel = FR.domaineQHSELabel;
 export const statutDepense = FR.statutDepense;
+export const statutPresence = FR.statutPresence;
 export const abordLabel = FR.abordLabel;
 export const priseEnChargeLabel = FR.priseEnChargeLabel;
 export const creneauLabel = FR.creneauLabel;

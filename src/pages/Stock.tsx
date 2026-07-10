@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Boxes, Plus, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, TrendingUp, Repeat } from 'lucide-react';
+import { Boxes, Plus, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, TrendingUp, Repeat, FileText } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import {
   PageHeader,
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
-import { fmtDate, fmtMoney, todayISO } from '@/lib/utils';
+import { fmtDate, fmtMoney, todayISO, downloadListePDF, slugify } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import type { ArticleStock, CategorieStock, TypeMouvement } from '@/types';
 
@@ -58,6 +58,43 @@ export default function Stock() {
   const filtered = articlesStock.filter((a) => !filtre || a.categorie === filtre);
   const alertes = articlesStock.filter((a) => a.quantite <= a.seuilAlerte);
   const valorisation = articlesStock.reduce((a, x) => a + x.quantite * x.prixUnitaire, 0);
+
+  const exportPDF = () => {
+    const periode = filtre ? L.categorieStock[filtre as CategorieStock] : t('cf.allCategories');
+    downloadListePDF(`liste-stock-${slugify(periode)}`, {
+      settings,
+      titre: t('nav.stock'),
+      periode,
+      headers: [
+        t('cf.designation'),
+        t('cf.code'),
+        t('cf.category'),
+        t('cf.stock'),
+        t('cf.unit'),
+        t('cf.threshold'),
+        t('cf.unitPrice'),
+        t('st.valueInStock'),
+        t('cf.supplier'),
+      ],
+      aligns: ['left', 'left', 'left', 'right', 'left', 'right', 'right', 'right', 'left'],
+      rows: filtered.map((a) => [
+        a.designation,
+        a.code,
+        L.categorieStock[a.categorie],
+        `${a.quantite}${a.quantite <= a.seuilAlerte ? ' (bas)' : ''}`,
+        a.unite,
+        String(a.seuilAlerte),
+        fmtMoney(a.prixUnitaire, settings.devise),
+        fmtMoney(a.quantite * a.prixUnitaire, settings.devise),
+        a.fournisseur,
+      ]),
+      synthese: [
+        { label: t('st.refs'), value: String(filtered.length) },
+        { label: t('st.alerts'), value: String(filtered.filter((a) => a.quantite <= a.seuilAlerte).length) },
+        { label: t('st.value'), value: fmtMoney(filtered.reduce((s, a) => s + a.quantite * a.prixUnitaire, 0), settings.devise) },
+      ],
+    });
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -98,7 +135,14 @@ export default function Stock() {
       <PageHeader
         title={t('nav.stock')}
         subtitle={t('st.subtitle').replace('{n}', String(articlesStock.length))}
-        action={editable ? <Button onClick={openCreate}><Plus size={16} /> {t('st.new')}</Button> : undefined}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={exportPDF} disabled={filtered.length === 0}>
+              <FileText size={16} /> Télécharger en PDF
+            </Button>
+            {editable && <Button onClick={openCreate}><Plus size={16} /> {t('st.new')}</Button>}
+          </div>
+        }
       />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">

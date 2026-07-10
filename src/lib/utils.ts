@@ -301,6 +301,122 @@ export function downloadDashboardPDF(filename: string, o: PdfDashboard) {
   doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
 }
 
+// ─── Export PDF — Document administratif RH ──────────────────────────────────
+type PdfDocument = {
+  settings: ClinicSettings;
+  titre: string;
+  /** Corps du document (paragraphes séparés par des retours à la ligne). */
+  corps: string;
+  /** Blocs de signature en pied (1 = attestation, 2 = contrat). */
+  signatures: string[];
+  /** Référence / sous-titre optionnel sous le titre. */
+  reference?: string;
+};
+
+/** Génère un document administratif RH en PDF portrait A4, corps justifié. */
+export function downloadDocumentPDF(filename: string, o: PdfDocument) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 20;
+  const contentW = pageW - 2 * M;
+  const brand: [number, number, number] = [13, 148, 136];
+  const s = o.settings;
+  const P = (v: unknown) => String(v ?? '').replace(/[\u202F\u00A0\u2009\u2007]/g, ' ');
+
+  const footer = () => {
+    const parts = [s.nom, s.adresse, s.ninea ? `NINEA ${s.ninea}` : '', s.registreCommerce ? `RC ${s.registreCommerce}` : '', s.telephone, s.email].filter(Boolean);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.line(M, pageH - M + 2, pageW - M, pageH - M + 2);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(P(parts.join(' · ')), pageW / 2, pageH - M + 6, { align: 'center', maxWidth: contentW });
+  };
+
+  // En-tête établissement
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  doc.text(P(s.nom), M, M);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(P(`${s.adresse}${s.telephone ? ' · Tél : ' + s.telephone : ''}`), M, M + 5.5);
+  doc.setDrawColor(brand[0], brand[1], brand[2]);
+  doc.setLineWidth(0.4);
+  doc.line(M, M + 9, pageW - M, M + 9);
+
+  // Titre
+  let y = M + 20;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 118, 110);
+  doc.text(P(o.titre).toUpperCase(), pageW / 2, y, { align: 'center' });
+  const tw = doc.getTextWidth(P(o.titre).toUpperCase());
+  doc.setDrawColor(brand[0], brand[1], brand[2]);
+  doc.setLineWidth(0.5);
+  doc.line((pageW - tw) / 2, y + 1.8, (pageW + tw) / 2, y + 1.8);
+  if (o.reference) {
+    y += 6;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(P(o.reference), pageW / 2, y, { align: 'center' });
+  }
+  y += 12;
+
+  // Corps justifié, paragraphe par paragraphe
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10.5);
+  doc.setTextColor(30, 41, 59);
+  const lineH = 5.6;
+  const paras = P(o.corps).split('\n');
+  for (const para of paras) {
+    if (para.trim() === '') { y += lineH * 0.6; continue; }
+    const lines = doc.splitTextToSize(para, contentW) as string[];
+    for (let i = 0; i < lines.length; i++) {
+      if (y > pageH - M - 6) { footer(); doc.addPage(); y = M; }
+      // Justifier toutes les lignes d'un paragraphe sauf la dernière
+      const isLast = i === lines.length - 1;
+      doc.text(lines[i], M, y, isLast ? {} : { align: 'justify', maxWidth: contentW });
+      y += lineH;
+    }
+  }
+
+  // Signatures
+  y += 8;
+  const blockH = 26;
+  if (y > pageH - M - blockH) { footer(); doc.addPage(); y = M + 6; }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(30, 41, 59);
+  if (o.signatures.length === 1) {
+    doc.text(P(o.signatures[0]), pageW - M, y, { align: 'right' });
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text('(cachet et signature)', pageW - M, y + 5, { align: 'right' });
+  } else {
+    const colW = contentW / 2;
+    o.signatures.slice(0, 2).forEach((label, i) => {
+      const cx = M + i * colW + colW / 2;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(P(label), cx, y, { align: 'center' });
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text('(cachet et signature)', cx, y + 5, { align: 'center' });
+    });
+  }
+
+  footer();
+  doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+}
+
 export const readFileAsDataURL = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();

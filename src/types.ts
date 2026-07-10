@@ -67,6 +67,9 @@ export type RoleStaff = 'nephrologue' | 'infirmier' | 'technicien' | 'aide_soign
 
 export type TypeContrat = 'CDI' | 'CDD' | 'stage' | 'vacation' | 'prestation';
 
+/** Statut de présence d'un employé. */
+export type StatutPresence = 'present' | 'conge' | 'maladie' | 'autre';
+
 export interface ContactUrgence {
   nom: string;
   lien: string; // conjoint, parent, ami…
@@ -104,6 +107,11 @@ export interface Staff {
   alerteContratJours?: number; // alerte N jours avant la fin du contrat (défaut 30)
   contactsUrgence?: ContactUrgence[];
   documents?: StaffDocument[];
+  // Présence / absence
+  statutPresence?: StatutPresence; // présent par défaut
+  absenceDebut?: string; // date de début (congé / maladie / autre)
+  absenceRetour?: string; // date de retour prévue
+  absenceMotif?: string; // précision (congé annuel, maladie, formation…)
 }
 
 export type StatutMachine = 'operationnel' | 'maintenance' | 'desinfection' | 'hors_service';

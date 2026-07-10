@@ -96,13 +96,16 @@ body {
   .bulletin-sheet,
   .bulletin-sheet *,
   .liste-sheet,
-  .liste-sheet * {
+  .liste-sheet *,
+  .doc-sheet,
+  .doc-sheet * {
     visibility: visible !important;
   }
   .facture-sheet,
   .ordonnance-sheet,
   .bulletin-sheet,
-  .liste-sheet {
+  .liste-sheet,
+  .doc-sheet {
     position: absolute !important;
     left: 0;
     top: 0;
@@ -119,7 +122,8 @@ body {
   .facture-sheet *,
   .ordonnance-sheet *,
   .bulletin-sheet *,
-  .liste-sheet * {
+  .liste-sheet *,
+  .doc-sheet * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -135,7 +139,8 @@ body {
   .facture-sheet,
   .ordonnance-sheet,
   .bulletin-sheet,
-  .liste-sheet {
+  .liste-sheet,
+  .doc-sheet {
     padding-bottom: 3rem !important;
   }
   /* Les listes tiennent mieux en paysage, et sont mises à l'échelle pour

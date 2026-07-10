@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Phone, Mail, AlertTriangle } from 'lucide-react';
+import { Plus, Phone, Mail, AlertTriangle, CalendarClock } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import {
   PageHeader,
@@ -10,10 +10,12 @@ import {
   Field,
   Input,
   Select,
+  Textarea,
   Table,
   Th,
   Td,
   RowActions,
+  ActionButton,
   ConfirmDialog,
   DefList,
   DefRow,
@@ -22,7 +24,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
 import { fmtDate, initials } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
-import type { RoleStaff, Staff, TypeContrat, ContactUrgence } from '@/types';
+import type { RoleStaff, Staff, TypeContrat, ContactUrgence, StatutPresence } from '@/types';
 
 const emptyContacts: ContactUrgence[] = [
   { nom: '', lien: '', telephone: '' },
@@ -68,6 +70,7 @@ export default function Personnel() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewTarget, setViewTarget] = useState<Staff | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Staff | null>(null);
+  const [presenceTarget, setPresenceTarget] = useState<Staff | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const set = (k: keyof typeof form, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -187,6 +190,14 @@ export default function Personnel() {
                       >
                         {s.actif ? <Badge tone="green">{t('cf.active')}</Badge> : <Badge tone="slate">{t('cf.inactive')}</Badge>}
                       </button>
+                      {s.statutPresence && s.statutPresence !== 'present' && (
+                        <span title={[s.absenceMotif, s.absenceDebut && `du ${fmtDate(s.absenceDebut)}`, s.absenceRetour && `au ${fmtDate(s.absenceRetour)}`].filter(Boolean).join(' ')}>
+                          <Badge tone={L.statutPresence[s.statutPresence].tone}>
+                            {L.statutPresence[s.statutPresence].label}
+                            {s.absenceRetour ? ` · retour ${fmtDate(s.absenceRetour)}` : ''}
+                          </Badge>
+                        </span>
+                      )}
                       {(() => {
                         const j = joursRestants(s);
                         const seuil = s.alerteContratJours ?? 30;
@@ -205,6 +216,7 @@ export default function Personnel() {
                       onView={() => setViewTarget(s)}
                       onEdit={editable ? () => openEdit(s) : undefined}
                       onDelete={deletable ? () => setDeleteTarget(s) : undefined}
+                      extra={editable ? <ActionButton tone="edit" icon={<CalendarClock size={15} />} label={t('pe.managePresence')} onClick={() => setPresenceTarget(s)} /> : undefined}
                     />
                   </Td>
                 </tr>
@@ -319,6 +331,64 @@ export default function Personnel() {
         onConfirm={() => deleteTarget && deleteStaff(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}
       />
+
+      {presenceTarget && (
+        <PresenceModal
+          staff={presenceTarget}
+          onClose={() => setPresenceTarget(null)}
+          onSave={(data) => { updateStaff(presenceTarget.id, data); setPresenceTarget(null); }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Modale de gestion de la présence : congé, maladie ou autre absence. */
+function PresenceModal({ staff, onClose, onSave }: { staff: Staff; onClose: () => void; onSave: (data: Partial<Staff>) => void }) {
+  const { t } = useT();
+  const L = useLabels();
+  const [statut, setStatut] = useState<StatutPresence>(staff.statutPresence ?? 'present');
+  const [debut, setDebut] = useState(staff.absenceDebut ?? '');
+  const [retour, setRetour] = useState(staff.absenceRetour ?? '');
+  const [motif, setMotif] = useState(staff.absenceMotif ?? '');
+  const absent = statut !== 'present';
+
+  const save = () => {
+    if (!absent) {
+      onSave({ statutPresence: 'present', absenceDebut: '', absenceRetour: '', absenceMotif: '' });
+      return;
+    }
+    onSave({ statutPresence: statut, absenceDebut: debut || undefined, absenceRetour: retour || undefined, absenceMotif: motif || undefined });
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${t('pe.managePresence')} — ${staff.prenom} ${staff.nom}`}
+      footer={<><Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button><Button onClick={save} disabled={absent && (!debut || !retour || retour < debut)}>{t('common.save')}</Button></>}
+    >
+      <div className="space-y-4">
+        <Field label={t('pe.presenceStatus')}>
+          <Select value={statut} onChange={(e) => setStatut(e.target.value as StatutPresence)}>
+            {Object.entries(L.statutPresence).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </Select>
+        </Field>
+        {absent && (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label={t('pe.absenceStart')} required><Input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} /></Field>
+              <Field label={t('pe.absenceReturn')} required><Input type="date" value={retour} onChange={(e) => setRetour(e.target.value)} /></Field>
+            </div>
+            <Field label={t('pe.absenceReason')} hint={t('pe.absenceReasonHint')}>
+              <Textarea rows={2} value={motif} onChange={(e) => setMotif(e.target.value)} placeholder={statut === 'conge' ? 'Congé annuel' : statut === 'maladie' ? 'Arrêt maladie' : 'Formation, mission…'} />
+            </Field>
+            {debut && retour && retour < debut && (
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{t('pe.dateOrderError')}</div>
+            )}
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }

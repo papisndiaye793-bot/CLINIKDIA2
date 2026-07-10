@@ -22,6 +22,7 @@ import {
 } from '@/components/ui';
 import { fmtDate, fmtFileSize, fmtMoney, initials, readFileAsDataURL, todayISO } from '@/lib/utils';
 import { roleLabel, typeContratLabel } from '@/lib/labels';
+import { DocumentBuilder } from '@/components/DocumentBuilder';
 import type { Staff, TypeContrat, StaffDocument } from '@/types';
 
 const DOC_TYPES = ['Contrat de travail', 'CNI / Pièce d\'identité', 'Diplôme', 'Visite médicale', 'Attestation', 'CV', 'Autre'];
@@ -37,6 +38,7 @@ export default function GRH() {
   const [view, setView] = useState<Staff | null>(null);
   const [edit, setEdit] = useState<Staff | null>(null);
   const [preview, setPreview] = useState<StaffDocument | null>(null);
+  const [docBuilder, setDocBuilder] = useState<{ open: boolean; staffId?: string }>({ open: false });
 
   const masseSalariale = staff.filter((s) => s.actif).reduce((a, s) => a + (s.salaireBase ?? 0), 0);
   const cdi = staff.filter((s) => s.typeContrat === 'CDI').length;
@@ -44,7 +46,11 @@ export default function GRH() {
 
   return (
     <div>
-      <PageHeader title="GRH — Ressources humaines" subtitle="Contrats, paie et dossiers du personnel" />
+      <PageHeader
+        title="GRH — Ressources humaines"
+        subtitle="Contrats, paie et dossiers du personnel"
+        action={editable ? <Button onClick={() => setDocBuilder({ open: true })}><FileText size={16} /> Établir un document</Button> : undefined}
+      />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Effectif actif" value={staff.filter((s) => s.actif).length} icon={<Users2 size={18} />} tone="blue" hint={`${staff.length} au total`} />
@@ -86,6 +92,15 @@ export default function GRH() {
                     <RowActions
                       onView={() => setView(s)}
                       onEdit={editable ? () => setEdit(s) : undefined}
+                      extra={editable ? (
+                        <button
+                          title="Établir un document"
+                          onClick={() => setDocBuilder({ open: true, staffId: s.id })}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600"
+                        >
+                          <FileText size={15} />
+                        </button>
+                      ) : undefined}
                     />
                   </Td>
                 </tr>
@@ -179,6 +194,13 @@ export default function GRH() {
 
       {/* Aperçu de document */}
       {preview && <DocPreview doc={preview} onClose={() => setPreview(null)} />}
+
+      {/* Établissement de documents administratifs */}
+      <DocumentBuilder
+        open={docBuilder.open}
+        initialStaffId={docBuilder.staffId}
+        onClose={() => setDocBuilder({ open: false })}
+      />
     </div>
   );
 }
