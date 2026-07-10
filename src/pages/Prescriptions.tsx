@@ -416,23 +416,6 @@ function OrdonnanceApercu({ prescription, onClose }: { prescription: Prescriptio
             </div>
           </div>
 
-          {/* Schéma de dialyse */}
-          <div className="mt-7">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="h-4 w-1 rounded-full bg-brand-500" />
-              <h3 className="text-[13px] font-bold uppercase tracking-wide text-slate-700">{t('pr.ordScheme')}</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-              <SpecChip icon={<Clock size={12} />} label={t('pd.duration')} value={`${prescription.dureeSeance} min`} />
-              <SpecChip icon={<Repeat size={12} />} label={t('pd.freq')} value={`${prescription.frequenceHebdo}/sem`} />
-              <SpecChip icon={<Gauge size={12} />} label={t('pd.bloodFlow')} value={`${prescription.debitSang} ml/min`} />
-              <SpecChip icon={<Gauge size={12} />} label={t('pd.dialysate')} value={`${prescription.debitDialysat} ml/min`} />
-              <SpecChip icon={<FlaskConical size={12} />} label={t('pr.dialyzer')} value={prescription.dialyseur || '—'} />
-              <SpecChip icon={<Droplets size={12} />} label={t('pr.bath')} value={prescription.bainDialyse || '—'} />
-              <SpecChip icon={<Pill size={12} />} label={t('pr.anticoag')} value={prescription.anticoagulation || '—'} />
-            </div>
-          </div>
-
           {/* Traitement médicamenteux */}
           <div className="mt-7">
             <div className="mb-3 flex items-center gap-2">
