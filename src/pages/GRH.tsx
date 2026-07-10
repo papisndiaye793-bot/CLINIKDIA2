@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Wallet, Users2, FileText, CalendarClock, Plus, FileUp, Trash2, Phone, Eye, Pencil, Download, X, Image as ImageIcon } from 'lucide-react';
+import { Wallet, Users2, FileText, CalendarClock, Plus, FileUp, Trash2, Phone, Eye, Pencil, Download, X, Image as ImageIcon, Printer } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -25,6 +25,7 @@ import {
 import { downloadDocumentPDF, fmtDate, fmtFileSize, fmtMoney, initials, readFileAsDataURL, slugify, todayISO } from '@/lib/utils';
 import { roleLabel, typeContratLabel } from '@/lib/labels';
 import { DocumentBuilder } from '@/components/DocumentBuilder';
+import { RapportListe } from '@/components/RapportListe';
 import { DOC_MODELES, signaturesFor } from '@/lib/hrDocuments';
 import type { DocumentRH, Staff, TypeContrat, StaffDocument } from '@/types';
 
@@ -43,6 +44,7 @@ export default function GRH() {
   const [preview, setPreview] = useState<StaffDocument | null>(null);
   const [docBuilder, setDocBuilder] = useState<{ open: boolean; staffId?: string }>({ open: false });
   const [delDoc, setDelDoc] = useState<DocumentRH | null>(null);
+  const [histOpen, setHistOpen] = useState(false);
 
   const reDownload = (d: DocumentRH) => {
     downloadDocumentPDF(`${slugify(d.titre)}-${slugify(d.staffNom)}`, {
@@ -129,7 +131,14 @@ export default function GRH() {
         <CardHeader
           title="Documents établis"
           subtitle={`${documentsRH.length} document(s) généré(s)`}
-          action={editable ? <Button size="sm" variant="secondary" onClick={() => setDocBuilder({ open: true })}><FileText size={16} /> Nouveau document</Button> : undefined}
+          action={
+            <div className="flex items-center gap-2">
+              {documentsRH.length > 0 && (
+                <Button size="sm" variant="secondary" onClick={() => setHistOpen(true)}><Printer size={16} /> Historique</Button>
+              )}
+              {editable && <Button size="sm" variant="secondary" onClick={() => setDocBuilder({ open: true })}><FileText size={16} /> Nouveau document</Button>}
+            </div>
+          }
         />
         {documentsRH.length === 0 ? (
           <EmptyState icon={<FileText size={22} />} title="Aucun document établi" hint="Utilisez « Établir un document » pour générer contrats, attestations et certificats." />
@@ -258,6 +267,22 @@ export default function GRH() {
         open={docBuilder.open}
         initialStaffId={docBuilder.staffId}
         onClose={() => setDocBuilder({ open: false })}
+      />
+
+      {/* Historique imprimable des documents établis */}
+      <RapportListe
+        open={histOpen}
+        onClose={() => setHistOpen(false)}
+        titre="Historique des documents établis"
+        settings={settings}
+        rows={documentsRH}
+        dateOf={(d) => d.date}
+        colonnes={[
+          { header: 'Date', cell: (d) => fmtDate(d.date), text: (d) => fmtDate(d.date) },
+          { header: 'Employé', cell: (d) => d.staffNom },
+          { header: 'Matricule', cell: (d) => d.staffCode ?? '—' },
+          { header: 'Type de document', cell: (d) => d.titre },
+        ]}
       />
     </div>
   );

@@ -368,16 +368,26 @@ export function downloadDocumentPDF(filename: string, o: PdfDocument) {
   y += 12;
 
   // Corps justifié, paragraphe par paragraphe
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10.5);
-  doc.setTextColor(30, 41, 59);
+  const applyBodyStyle = () => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(30, 41, 59);
+  };
+  applyBodyStyle();
   const lineH = 5.6;
   const paras = P(o.corps).split('\n');
   for (const para of paras) {
     if (para.trim() === '') { y += lineH * 0.6; continue; }
     const lines = doc.splitTextToSize(para, contentW) as string[];
     for (let i = 0; i < lines.length; i++) {
-      if (y > pageH - M - 6) { footer(); doc.addPage(); y = M; }
+      if (y > pageH - M - 6) {
+        footer();
+        doc.addPage();
+        y = M;
+        // footer() a modifié la police (petite, grise) : on rétablit le style
+        // du corps pour que les pages suivantes restent lisibles.
+        applyBodyStyle();
+      }
       // Justifier toutes les lignes d'un paragraphe sauf la dernière
       const isLast = i === lines.length - 1;
       doc.text(lines[i], M, y, isLast ? {} : { align: 'justify', maxWidth: contentW });
