@@ -22,7 +22,7 @@ import {
   ConfirmDialog,
   EmptyState,
 } from '@/components/ui';
-import { downloadDocumentPDF, fmtDate, fmtFileSize, fmtMoney, initials, readFileAsDataURL, slugify, todayISO } from '@/lib/utils';
+import { downloadDocumentPDF, downloadListePDF, fmtDate, fmtFileSize, fmtMoney, initials, readFileAsDataURL, slugify, todayISO } from '@/lib/utils';
 import { roleLabel, typeContratLabel } from '@/lib/labels';
 import { DocumentBuilder } from '@/components/DocumentBuilder';
 import { RapportListe } from '@/components/RapportListe';
@@ -45,6 +45,29 @@ export default function GRH() {
   const [docBuilder, setDocBuilder] = useState<{ open: boolean; staffId?: string }>({ open: false });
   const [delDoc, setDelDoc] = useState<DocumentRH | null>(null);
   const [histOpen, setHistOpen] = useState(false);
+
+  const exportPersonnelPDF = () => {
+    downloadListePDF('liste-rh-personnel', {
+      settings,
+      titre: 'GRH — Dossiers du personnel',
+      periode: `${staff.length} employé(s)`,
+      headers: ['Employé', 'Fonction', 'Contrat', 'Embauche', 'Échéance', 'Salaire de base', 'Documents'],
+      aligns: ['left', 'left', 'left', 'left', 'left', 'right', 'right'],
+      rows: staff.map((s) => [
+        `${s.role === 'nephrologue' ? 'Dr ' : ''}${s.prenom} ${s.nom} (${s.code})`,
+        roleLabel[s.role].label,
+        s.typeContrat ? typeContratLabel[s.typeContrat].label : '—',
+        fmtDate(s.dateEmbauche),
+        s.dateFinContrat ? fmtDate(s.dateFinContrat) : '—',
+        s.salaireBase ? fmtMoney(s.salaireBase, settings.devise) : '—',
+        String(s.documents?.length ?? 0),
+      ]),
+      synthese: [
+        { label: 'Effectif', value: String(staff.length) },
+        { label: 'Masse salariale / mois', value: fmtMoney(masseSalariale, settings.devise) },
+      ],
+    });
+  };
 
   const reDownload = (d: DocumentRH) => {
     const modele = DOC_MODELES.find((m) => m.id === d.modeleId);
@@ -72,7 +95,12 @@ export default function GRH() {
       <PageHeader
         title="GRH — Ressources humaines"
         subtitle="Contrats, paie et dossiers du personnel"
-        action={editable ? <Button onClick={() => setDocBuilder({ open: true })}><FileText size={16} /> Établir un document</Button> : undefined}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={exportPersonnelPDF} disabled={staff.length === 0}><Download size={16} /> Télécharger en PDF</Button>
+            {editable && <Button onClick={() => setDocBuilder({ open: true })}><FileText size={16} /> Établir un document</Button>}
+          </div>
+        }
       />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

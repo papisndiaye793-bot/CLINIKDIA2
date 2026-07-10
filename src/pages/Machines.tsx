@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, Wrench, Plus, Clock, Droplet } from 'lucide-react';
+import { Activity, Wrench, Plus, Clock, Droplet, FileText } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import {
   PageHeader,
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
-import { fmtDate, fmtMoney, todayISO } from '@/lib/utils';
+import { fmtDate, fmtMoney, todayISO, downloadListePDF } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import type { StatutMachine, TypeMaintenance, Machine, Maintenance } from '@/types';
 
@@ -60,6 +60,30 @@ export default function Machines() {
   const machineCode = (id: string) => machines.find((m) => m.id === id)?.code ?? '—';
   const techName = (id: string) => { const t = staff.find((x) => x.id === id); return t ? `${t.prenom} ${t.nom}` : '—'; };
 
+  const exportPDF = () => {
+    downloadListePDF('liste-generateurs', {
+      settings,
+      titre: t('nav.machines'),
+      periode: `${machines.length} générateur(s)`,
+      headers: [t('cf.code'), t('ma.model'), t('ma.serial'), t('pl.poste'), t('ma.hours'), t('ma.lastDisinfection'), t('ma.nextMaint'), t('common.status')],
+      aligns: ['left', 'left', 'left', 'right', 'right', 'left', 'left', 'left'],
+      rows: machines.map((m) => [
+        m.code,
+        `${m.marque} ${m.modele}`,
+        m.numeroSerie,
+        String(m.poste),
+        `${m.heuresFonctionnement.toLocaleString('fr-FR')} h`,
+        fmtDate(m.derniereDesinfection),
+        fmtDate(m.prochaineMaintenance),
+        L.statutMachine[m.statut].label,
+      ]),
+      synthese: [
+        { label: t('ma.operational'), value: `${op}/${machines.length}` },
+        { label: t('ma.inProgress'), value: String(enMaint) },
+      ],
+    });
+  };
+
   const openCreate = () => {
     setEditingMaintId(null);
     setForm(emptyMaint(machines[0]?.id ?? '', techniciens[0]?.id ?? ''));
@@ -89,7 +113,12 @@ export default function Machines() {
       <PageHeader
         title={t('nav.machines')}
         subtitle={t('ma.subtitle').replace('{n}', String(machines.length))}
-        action={editable ? <Button onClick={openCreate}><Plus size={16} /> {t('ma.planMaint')}</Button> : undefined}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={exportPDF} disabled={machines.length === 0}><FileText size={16} /> {t('common.downloadPdf')}</Button>
+            {editable && <Button onClick={openCreate}><Plus size={16} /> {t('ma.planMaint')}</Button>}
+          </div>
+        }
       />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">

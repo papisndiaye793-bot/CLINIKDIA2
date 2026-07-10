@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Phone, Mail, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Plus, Phone, Mail, AlertTriangle, CalendarClock, FileText } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import {
   PageHeader,
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
-import { fmtDate, initials } from '@/lib/utils';
+import { fmtDate, initials, downloadListePDF, slugify } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import type { RoleStaff, Staff, TypeContrat, ContactUrgence, StatutPresence } from '@/types';
 
@@ -59,7 +59,7 @@ export function joursRestants(s: { typeContrat?: TypeContrat; dateFinContrat?: s
 }
 
 export default function Personnel() {
-  const { staff, addStaff, updateStaff, deleteStaff } = useStore();
+  const { staff, settings, addStaff, updateStaff, deleteStaff } = useStore();
   const { canWrite, canDelete } = useAuth();
   const { t } = useT();
   const L = useLabels();
@@ -79,6 +79,26 @@ export default function Personnel() {
     acc[s.role] = (acc[s.role] ?? 0) + 1;
     return acc;
   }, {});
+
+  const exportPDF = () => {
+    const periode = filtre ? L.roleLabel[filtre as RoleStaff].label : t('pe.allRoles');
+    downloadListePDF(`liste-personnel-${slugify(periode)}`, {
+      settings,
+      titre: t('nav.personnel'),
+      periode,
+      headers: [t('pe.member'), t('cf.role'), t('cf.specialty'), t('cf.phone'), t('cf.email'), t('pe.contractType'), t('pe.hireDate'), t('common.status')],
+      rows: filtered.map((s) => [
+        `${s.role === 'nephrologue' ? 'Dr ' : ''}${s.prenom} ${s.nom} (${s.code})`,
+        L.roleLabel[s.role].label,
+        s.specialite || '—',
+        s.telephone,
+        s.email,
+        s.typeContrat ? L.typeContratLabel[s.typeContrat].label : '—',
+        fmtDate(s.dateEmbauche),
+        (s.actif ? t('cf.active') : t('cf.inactive')) + (s.statutPresence && s.statutPresence !== 'present' ? ` · ${L.statutPresence[s.statutPresence].label}` : ''),
+      ]),
+    });
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -143,7 +163,14 @@ export default function Personnel() {
       <PageHeader
         title={t('nav.personnel')}
         subtitle={t('pe.subtitle').replace('{n}', String(staff.length))}
-        action={editable ? <Button onClick={openCreate}><Plus size={16} /> {t('pe.add')}</Button> : undefined}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={exportPDF} disabled={filtered.length === 0}>
+              <FileText size={16} /> {t('common.downloadPdf')}
+            </Button>
+            {editable && <Button onClick={openCreate}><Plus size={16} /> {t('pe.add')}</Button>}
+          </div>
+        }
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
