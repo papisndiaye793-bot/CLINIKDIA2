@@ -59,6 +59,8 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
       staffCode: s.code,
       date: today,
       corps,
+      values,
+      edited: dirty,
     });
     generatePDF();
   };

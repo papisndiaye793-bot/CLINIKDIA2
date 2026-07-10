@@ -47,12 +47,19 @@ export default function GRH() {
   const [histOpen, setHistOpen] = useState(false);
 
   const reDownload = (d: DocumentRH) => {
+    const modele = DOC_MODELES.find((m) => m.id === d.modeleId);
+    const s = staff.find((x) => x.id === d.staffId);
+    // Régénère le corps avec les infos établissement à jour, sauf si le texte a
+    // été modifié à la main (on conserve alors la version figée).
+    const corps = modele && s && d.values && !d.edited
+      ? modele.build({ s, c: settings, v: d.values, today: d.date })
+      : d.corps;
     downloadDocumentPDF(`${slugify(d.titre)}-${slugify(d.staffNom)}`, {
       settings,
       titre: d.titre,
-      corps: d.corps,
+      corps,
       signatures: signaturesFor(d.modeleId),
-      reference: DOC_MODELES.find((m) => m.id === d.modeleId)?.description,
+      reference: modele?.description,
     });
   };
 

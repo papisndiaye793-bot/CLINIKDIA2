@@ -96,6 +96,10 @@ export interface DocumentRH {
   staffCode?: string;
   date: string; // date d'établissement (ISO)
   corps: string; // corps figé (éditable au moment de l'établissement)
+  /** Valeurs des champs, pour régénérer le corps avec les infos établissement à jour. */
+  values?: Record<string, string>;
+  /** true si le corps a été modifié à la main → on conserve le texte figé tel quel. */
+  edited?: boolean;
 }
 
 export interface Staff {
