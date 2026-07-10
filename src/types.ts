@@ -86,6 +86,18 @@ export interface StaffDocument {
   dataUrl?: string; // contenu encodé (base64)
 }
 
+/** Document administratif RH établi (contrat, attestation, certificat…). */
+export interface DocumentRH {
+  id: string;
+  modeleId: string; // clé du modèle (cdi, cdd, prestation, attestation_travail…)
+  titre: string;
+  staffId: string;
+  staffNom: string; // « Prénom Nom » figé au moment de l'établissement
+  staffCode?: string;
+  date: string; // date d'établissement (ISO)
+  corps: string; // corps figé (éditable au moment de l'établissement)
+}
+
 export interface Staff {
   id: string;
   code: string;

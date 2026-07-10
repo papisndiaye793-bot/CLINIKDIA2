@@ -22,6 +22,7 @@ import type {
   Certification,
   Depense,
   Archive,
+  DocumentRH,
 } from '@/types';
 import * as seed from '@/data/seed';
 import { validatePassword } from '@/lib/utils';
@@ -81,6 +82,7 @@ interface State {
   depenses: Depense[];
   exercice: number;
   archives: Archive[];
+  documentsRH: DocumentRH[];
 
   // Patients
   addPatient: (p: Omit<Patient, 'id' | 'code' | 'createdAt'>) => void;
@@ -159,6 +161,10 @@ interface State {
   updateCertification: (id: string, c: Partial<Certification>) => void;
   deleteCertification: (id: string) => void;
 
+  // GRH — documents administratifs établis
+  addDocumentRH: (d: Omit<DocumentRH, 'id'>) => DocumentRH;
+  deleteDocumentRH: (id: string) => void;
+
   // Paie — barème des taux (IPRES, CSS, IPM, IR, TRIMF)
   updatePaieBareme: (b: PaieBareme) => void;
 
@@ -199,6 +205,7 @@ const seedState = () => ({
   depenses: seed.depenses,
   exercice: new Date().getFullYear(),
   archives: [],
+  documentsRH: [],
 });
 
 const slugify = (s: string) =>
@@ -517,6 +524,15 @@ export const useStore = create<State>()(
         set((st) => ({ certifications: st.certifications.map((x) => (x.id === id ? { ...x, ...c } : x)) })),
       deleteCertification: (id) => set((st) => ({ certifications: st.certifications.filter((x) => x.id !== id) })),
 
+      addDocumentRH: (d) => {
+        const doc: DocumentRH = { ...d, id: uid() };
+        set((st) => ({ documentsRH: [doc, ...st.documentsRH] }));
+        get().logAction('create', 'grh', `Document établi : ${d.titre} — ${d.staffNom}`);
+        return doc;
+      },
+      deleteDocumentRH: (id) =>
+        set((st) => ({ documentsRH: st.documentsRH.filter((x) => x.id !== id) })),
+
       updatePaieBareme: (b) => set({ paieBareme: b }),
 
       // ─── Dépenses ───────────────────────────────────────────────────────
@@ -569,7 +585,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'clinikdia-store',
-      version: 13,
+      version: 14,
       // Conserve les données existantes et complète les nouveaux champs
       // (identité légale, contrôles QHSE, canaux de messagerie…).
       migrate: (persisted) => {
@@ -588,6 +604,7 @@ export const useStore = create<State>()(
           chatMessages: mergedMsgs,
           exercice: p.exercice ?? new Date().getFullYear(),
           archives: p.archives ?? [],
+          documentsRH: p.documentsRH ?? [],
         } as State;
       },
     }

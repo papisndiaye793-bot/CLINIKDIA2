@@ -19,11 +19,14 @@ import {
   RowActions,
   DefList,
   DefRow,
+  ConfirmDialog,
+  EmptyState,
 } from '@/components/ui';
-import { fmtDate, fmtFileSize, fmtMoney, initials, readFileAsDataURL, todayISO } from '@/lib/utils';
+import { downloadDocumentPDF, fmtDate, fmtFileSize, fmtMoney, initials, readFileAsDataURL, slugify, todayISO } from '@/lib/utils';
 import { roleLabel, typeContratLabel } from '@/lib/labels';
 import { DocumentBuilder } from '@/components/DocumentBuilder';
-import type { Staff, TypeContrat, StaffDocument } from '@/types';
+import { DOC_MODELES, signaturesFor } from '@/lib/hrDocuments';
+import type { DocumentRH, Staff, TypeContrat, StaffDocument } from '@/types';
 
 const DOC_TYPES = ['Contrat de travail', 'CNI / Pièce d\'identité', 'Diplôme', 'Visite médicale', 'Attestation', 'CV', 'Autre'];
 const MAX_DOC_BYTES = 3 * 1024 * 1024; // 3 Mo
@@ -31,7 +34,7 @@ const MAX_DOC_BYTES = 3 * 1024 * 1024; // 3 Mo
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 export default function GRH() {
-  const { staff, settings, updateStaff, logAction } = useStore();
+  const { staff, settings, documentsRH, updateStaff, deleteDocumentRH, logAction } = useStore();
   const { canWrite } = useAuth();
   const editable = canWrite('grh');
 
@@ -39,6 +42,17 @@ export default function GRH() {
   const [edit, setEdit] = useState<Staff | null>(null);
   const [preview, setPreview] = useState<StaffDocument | null>(null);
   const [docBuilder, setDocBuilder] = useState<{ open: boolean; staffId?: string }>({ open: false });
+  const [delDoc, setDelDoc] = useState<DocumentRH | null>(null);
+
+  const reDownload = (d: DocumentRH) => {
+    downloadDocumentPDF(`${slugify(d.titre)}-${slugify(d.staffNom)}`, {
+      settings,
+      titre: d.titre,
+      corps: d.corps,
+      signatures: signaturesFor(d.modeleId),
+      reference: DOC_MODELES.find((m) => m.id === d.modeleId)?.description,
+    });
+  };
 
   const masseSalariale = staff.filter((s) => s.actif).reduce((a, s) => a + (s.salaireBase ?? 0), 0);
   const cdi = staff.filter((s) => s.typeContrat === 'CDI').length;
@@ -109,6 +123,50 @@ export default function GRH() {
           </tbody>
         </Table>
       </Card>
+
+      {/* Registre des documents établis */}
+      <Card className="mt-6">
+        <CardHeader
+          title="Documents établis"
+          subtitle={`${documentsRH.length} document(s) généré(s)`}
+          action={editable ? <Button size="sm" variant="secondary" onClick={() => setDocBuilder({ open: true })}><FileText size={16} /> Nouveau document</Button> : undefined}
+        />
+        {documentsRH.length === 0 ? (
+          <EmptyState icon={<FileText size={22} />} title="Aucun document établi" hint="Utilisez « Établir un document » pour générer contrats, attestations et certificats." />
+        ) : (
+          <Table>
+            <thead className="border-b border-slate-100 bg-slate-50/60">
+              <tr><Th>Date</Th><Th>Employé</Th><Th>Type de document</Th><Th className="text-right">Actions</Th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {documentsRH.map((d) => (
+                <tr key={d.id} className="hover:bg-slate-50">
+                  <Td className="whitespace-nowrap text-slate-500">{fmtDate(d.date)}</Td>
+                  <Td>
+                    <div className="font-medium text-slate-800">{d.staffNom}</div>
+                    {d.staffCode && <div className="text-xs text-slate-400">{d.staffCode}</div>}
+                  </Td>
+                  <Td><Badge tone="blue">{d.titre}</Badge></Td>
+                  <Td>
+                    <div className="flex items-center justify-end gap-1">
+                      <IconBtn title="Télécharger en PDF" tone="view" onClick={() => reDownload(d)}><Download size={15} /></IconBtn>
+                      {editable && <IconBtn title="Supprimer du registre" tone="delete" onClick={() => setDelDoc(d)}><Trash2 size={15} /></IconBtn>}
+                    </div>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+
+      <ConfirmDialog
+        open={!!delDoc}
+        title="Supprimer le document du registre"
+        message={<span className="font-semibold text-slate-700">{delDoc?.titre} — {delDoc?.staffNom}</span>}
+        onConfirm={() => { if (delDoc) { deleteDocumentRH(delDoc.id); logAction('delete', 'grh', `Document supprimé : ${delDoc.titre} — ${delDoc.staffNom}`); } }}
+        onClose={() => setDelDoc(null)}
+      />
 
       {/* Fiche RH */}
       <Modal open={!!view} onClose={() => setView(null)} title="Dossier RH" size="xl">

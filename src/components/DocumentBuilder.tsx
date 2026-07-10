@@ -3,14 +3,11 @@ import { FileText, Printer, X, RotateCcw, Droplets } from 'lucide-react';
 import { Button, Field, Input, Select, Textarea } from '@/components/ui';
 import { useStore } from '@/store/useStore';
 import { downloadDocumentPDF, fmtDateLong, slugify, todayISO } from '@/lib/utils';
-import { DOC_MODELES, defaultFieldValues, type DocCtx } from '@/lib/hrDocuments';
+import { DOC_MODELES, defaultFieldValues, signaturesFor, type DocCtx } from '@/lib/hrDocuments';
 import type { Staff } from '@/types';
 
-/** Documents signés par les deux parties (contrats). */
-const DEUX_SIGNATURES = new Set(['cdi', 'cdd']);
-
 export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boolean; onClose: () => void; initialStaffId?: string }) {
-  const { staff, settings } = useStore();
+  const { staff, settings, addDocumentRH } = useStore();
   const today = todayISO();
 
   const [staffId, setStaffId] = useState(initialStaffId ?? staff[0]?.id ?? '');
@@ -43,13 +40,27 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
   const setV = (k: string, val: string) => setValues((p) => ({ ...p, [k]: val }));
   const regenerate = () => { if (ctx) { setCorps(modele.build(ctx)); setDirty(false); } };
 
-  const signatures = DEUX_SIGNATURES.has(modele.id) ? ["Pour l'Employeur", 'Le/la Salarié(e)'] : ["Pour l'Employeur"];
+  const signatures = signaturesFor(modele.id);
 
   const fileBase = s ? `${slugify(modele.titre)}-${slugify(`${s.prenom}-${s.nom}`)}` : slugify(modele.titre);
 
-  const exportPDF = () => {
-    if (!s) return;
+  const generatePDF = () => {
     downloadDocumentPDF(fileBase, { settings, titre: modele.titre, corps, signatures, reference: modele.description });
+  };
+
+  // Établit le document (l'enregistre dans le registre) puis le télécharge.
+  const etablirEtTelecharger = () => {
+    if (!s) return;
+    addDocumentRH({
+      modeleId: modele.id,
+      titre: modele.titre,
+      staffId: s.id,
+      staffNom: `${s.prenom} ${s.nom}`,
+      staffCode: s.code,
+      date: today,
+      corps,
+    });
+    generatePDF();
   };
 
   return (
@@ -61,7 +72,8 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
         </span>
         <Button variant="secondary" onClick={regenerate} title="Régénérer depuis le modèle"><RotateCcw size={15} /> Régénérer</Button>
         <Button variant="secondary" onClick={() => window.print()}><Printer size={16} /> Imprimer</Button>
-        <Button onClick={exportPDF} disabled={!s}><FileText size={16} /> Télécharger en PDF</Button>
+        <Button variant="secondary" onClick={generatePDF} disabled={!s} title="Télécharger sans enregistrer"><FileText size={16} /> PDF</Button>
+        <Button onClick={etablirEtTelecharger} disabled={!s}><FileText size={16} /> Établir &amp; télécharger</Button>
         <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50">
           <X size={18} />
         </button>

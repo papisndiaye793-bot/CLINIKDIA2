@@ -209,6 +209,60 @@ ${articlesCommuns(ctx, 9)}`
     ),
   },
   {
+    id: 'prestation',
+    titre: 'Contrat de prestation de service',
+    description: 'Prestation indépendante — hors lien de subordination',
+    fields: [
+      { key: 'objet', label: 'Objet de la prestation', default: (c) => posteDefaut(c.s) },
+      { key: 'dateDebut', label: 'Date de début', type: 'date', default: (c) => c.today },
+      { key: 'dateFin', label: 'Date de fin', type: 'date', default: (c) => c.s.dateFinContrat ?? '' },
+      { key: 'honoraires', label: 'Honoraires (montant)', type: 'number', default: (c) => String(c.s.salaireBase ?? '') },
+      { key: 'periodicite', label: 'Périodicité de facturation', default: () => 'mensuelle, sur présentation de facture' },
+      { key: 'lieu', label: 'Fait à', default: (c) => {
+        const parts = (c.c.adresse || '').split(',').map((x) => x.trim()).filter(Boolean);
+        return (parts.length >= 2 ? parts[parts.length - 2] : parts[0]) || 'Dakar';
+      } },
+      { key: 'signataire', label: 'Signataire (Donneur d\'ordre)', default: () => 'La Direction' },
+      { key: 'qualiteSignataire', label: 'Qualité du signataire', default: () => 'Directeur/Directrice' },
+      { key: 'dateEdition', label: "Date d'édition", type: 'date', default: (c) => c.today },
+    ],
+    build: (ctx) => (
+`Entre les soussignés :
+
+${ctx.c.nom}, sis à ${ctx.c.adresse}${ctx.c.ninea ? `, NINEA ${ctx.c.ninea}` : ''}${ctx.c.registreCommerce ? `, RC ${ctx.c.registreCommerce}` : ''}, représenté(e) par ${val(ctx, 'signataire') || 'la Direction'}, en qualité de ${val(ctx, 'qualiteSignataire') || 'Directeur/Directrice'}, ci-après désigné(e) « le Donneur d'ordre », d'une part,
+
+Et ${civilite(ctx.s)} ${nomComplet(ctx.s)}${ctx.s.adresse ? `, demeurant à ${ctx.s.adresse}` : ''}${ctx.s.telephone ? `, téléphone ${ctx.s.telephone}` : ''}, agissant en qualité de prestataire indépendant, ci-après désigné(e) « le Prestataire », d'autre part,
+
+Il a été convenu ce qui suit :
+
+Article 1 — Objet
+Le Prestataire s'engage à réaliser, au profit du Donneur d'ordre, la prestation suivante : ${val(ctx, 'objet') || posteDefaut(ctx.s)}.
+
+Article 2 — Nature juridique et indépendance
+Le présent contrat est un contrat de prestation de service régi par le droit des obligations. Il ne crée aucun lien de subordination ni contrat de travail entre les parties. Le Prestataire exerce en toute indépendance, organise librement ses moyens et demeure seul responsable de ses obligations fiscales et sociales.
+
+Article 3 — Durée
+La prestation est réalisée du ${dateFr(val(ctx, 'dateDebut'))}${val(ctx, 'dateFin') ? ` au ${dateFr(val(ctx, 'dateFin'))}` : ', pour la durée nécessaire à sa bonne exécution'}.
+
+Article 4 — Honoraires et modalités de paiement
+En rémunération de sa prestation, le Prestataire percevra des honoraires de ${money(ctx, val(ctx, 'honoraires'))}, payables selon une périodicité ${val(ctx, 'periodicite') || 'mensuelle, sur présentation de facture'}. Les retenues fiscales applicables (notamment la retenue à la source sur les prestations, le cas échéant) seront opérées conformément à la réglementation.
+
+Article 5 — Obligations du Prestataire
+Le Prestataire s'engage à exécuter sa mission avec diligence et professionnalisme, dans le respect des règles de l'art, de la confidentialité et du secret médical, ainsi que des consignes d'hygiène et de sécurité du site.
+
+Article 6 — Assurances et responsabilité
+Le Prestataire déclare être couvert par une assurance de responsabilité civile professionnelle et fait son affaire personnelle de toute couverture requise pour l'exercice de son activité.
+
+Article 7 — Résiliation
+Chacune des parties peut résilier le présent contrat moyennant un préavis écrit de trente (30) jours, sans préjudice des prestations déjà exécutées et des honoraires dus.
+
+Article 8 — Droit applicable et différends
+Le présent contrat est régi par le droit sénégalais. Tout différend sera soumis, à défaut de règlement amiable, aux juridictions compétentes de Dakar.
+
+Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || ctx.today)}, en deux (2) exemplaires originaux.`
+    ),
+  },
+  {
     id: 'attestation_travail',
     titre: 'Attestation de travail',
     description: "Atteste l'emploi en cours d'un salarié",
@@ -298,6 +352,13 @@ Fait à ${val(ctx, 'lieu') || 'Dakar'}, le ${dateFr(val(ctx, 'dateEdition') || c
     ),
   },
 ];
+
+/** Libellés des blocs de signature selon le modèle. */
+export function signaturesFor(modeleId: string): string[] {
+  if (modeleId === 'cdi' || modeleId === 'cdd') return ["Pour l'Employeur", 'Le/la Salarié(e)'];
+  if (modeleId === 'prestation') return ["Pour le Donneur d'ordre", 'Le Prestataire'];
+  return ["Pour l'Employeur"];
+}
 
 /** Construit les valeurs par défaut des champs pour un modèle et un contexte. */
 export function defaultFieldValues(modele: DocModele, ctx: Omit<DocCtx, 'v'>): Record<string, string> {
