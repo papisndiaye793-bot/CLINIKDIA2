@@ -23,6 +23,7 @@ import type {
   Depense,
   Archive,
   DocumentRH,
+  Pointage,
 } from '@/types';
 import * as seed from '@/data/seed';
 import { validatePassword } from '@/lib/utils';
@@ -83,6 +84,7 @@ interface State {
   exercice: number;
   archives: Archive[];
   documentsRH: DocumentRH[];
+  pointages: Pointage[];
 
   // Patients
   addPatient: (p: Omit<Patient, 'id' | 'code' | 'createdAt'>) => void;
@@ -165,6 +167,10 @@ interface State {
   addDocumentRH: (d: Omit<DocumentRH, 'id'>) => DocumentRH;
   deleteDocumentRH: (id: string) => void;
 
+  // GRH — pointage (borne d'entrée/sortie)
+  addPointage: (p: Omit<Pointage, 'id'>) => Pointage;
+  deletePointage: (id: string) => void;
+
   // Paie — barème des taux (IPRES, CSS, IPM, IR, TRIMF)
   updatePaieBareme: (b: PaieBareme) => void;
 
@@ -206,6 +212,7 @@ const seedState = () => ({
   exercice: new Date().getFullYear(),
   archives: [],
   documentsRH: [],
+  pointages: [],
 });
 
 const slugify = (s: string) =>
@@ -533,6 +540,14 @@ export const useStore = create<State>()(
       deleteDocumentRH: (id) =>
         set((st) => ({ documentsRH: st.documentsRH.filter((x) => x.id !== id) })),
 
+      addPointage: (p) => {
+        const evt: Pointage = { ...p, id: uid() };
+        set((st) => ({ pointages: [evt, ...st.pointages] }));
+        return evt;
+      },
+      deletePointage: (id) =>
+        set((st) => ({ pointages: st.pointages.filter((x) => x.id !== id) })),
+
       updatePaieBareme: (b) => set({ paieBareme: b }),
 
       // ─── Dépenses ───────────────────────────────────────────────────────
@@ -585,7 +600,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'clinikdia-store',
-      version: 14,
+      version: 15,
       // Conserve les données existantes et complète les nouveaux champs
       // (identité légale, contrôles QHSE, canaux de messagerie…).
       migrate: (persisted) => {
@@ -605,6 +620,7 @@ export const useStore = create<State>()(
           exercice: p.exercice ?? new Date().getFullYear(),
           archives: p.archives ?? [],
           documentsRH: p.documentsRH ?? [],
+          pointages: p.pointages ?? [],
         } as State;
       },
     }

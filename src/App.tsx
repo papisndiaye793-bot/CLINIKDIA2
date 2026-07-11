@@ -19,6 +19,7 @@ import Paie from './pages/Paie';
 import Reporting from './pages/Reporting';
 import Parametres from './pages/Parametres';
 import GRH from './pages/GRH';
+import PointagePage from './pages/Pointage';
 import Calendrier from './pages/Calendrier';
 import Chat from './pages/Chat';
 import QHSE from './pages/QHSE';
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path: 'machines', element: <Machines /> },
       { path: 'prescriptions', element: <Prescriptions /> },
       { path: 'grh', element: <GRH /> },
+      { path: 'pointage', element: <PointagePage /> },
       { path: 'personnel', element: <Personnel /> },
       { path: 'stock', element: <Stock /> },
       { path: 'facturation', element: <Facturation /> },

@@ -128,6 +128,17 @@ export interface Staff {
   absenceDebut?: string; // date de début (congé / maladie / autre)
   absenceRetour?: string; // date de retour prévue
   absenceMotif?: string; // précision (congé annuel, maladie, formation…)
+  // Badge de pointage
+  photoUrl?: string; // photo d'identité (dataURL) pour le badge
+}
+
+/** Événement de pointage (badgeage entrée/sortie à la borne). */
+export interface Pointage {
+  id: string;
+  staffId: string;
+  type: 'entree' | 'sortie';
+  horodatage: string; // ISO datetime complet
+  methode: 'qr' | 'manuel';
 }
 
 export type StatutMachine = 'operationnel' | 'maintenance' | 'desinfection' | 'hors_service';

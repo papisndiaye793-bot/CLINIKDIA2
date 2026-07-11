@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Briefcase,
   UserCog,
+  ScanLine,
   Boxes,
   Receipt,
   Wallet,
@@ -56,6 +57,7 @@ const allNav: NavItem[] = [
   { to: '/prescriptions', key: 'prescriptions', icon: ClipboardList, label: 'Prescriptions' },
   { to: '/grh', key: 'grh', icon: Briefcase, label: 'GRH' },
   { to: '/personnel', key: 'personnel', icon: UserCog, label: 'Personnel' },
+  { to: '/pointage', key: 'grh', icon: ScanLine, label: 'Borne de pointage' },
   { to: '/stock', key: 'stock', icon: Boxes, label: 'Stock' },
   { to: '/facturation', key: 'facturation', icon: Receipt, label: 'Facturation' },
   { to: '/paie', key: 'paie', icon: Banknote, label: 'Paie' },
@@ -157,7 +159,7 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
     },
     {
       title: t('sec.rh'),
-      items: [byPath('/grh'), byPath('/personnel')],
+      items: [byPath('/grh'), byPath('/personnel'), byPath('/pointage')],
     },
     {
       title: t('sec.finances'),
