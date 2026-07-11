@@ -349,29 +349,32 @@ export function downloadDossierPDF(filename: string, o: PdfDossier) {
     return y;
   };
 
-  // ── En-tête clinique ──
+  // ── En-tête « papier à en-tête » : bande pleine aux couleurs de la clinique ──
+  const headerH = 26;
+  doc.setFillColor(brand[0], brand[1], brand[2]);
+  doc.rect(0, 0, pageW, headerH, 'F');
+  doc.setFillColor(15, 118, 110);
+  doc.rect(0, headerH, pageW, 1.2, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(15, 23, 42);
-  doc.text(P(s.nom), M, M + 2);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(P(`${s.adresse} · Tél : ${s.telephone}`), M, M + 7.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(15, 118, 110);
-  doc.text('DOSSIER MÉDICAL', pageW - M, M + 2, { align: 'right' });
+  doc.setFontSize(15);
+  doc.setTextColor(255, 255, 255);
+  doc.text(P(s.nom), M, 11.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(148, 163, 184);
-  doc.text(`Édité le ${P(fmtDateLong(todayISO()))}`, pageW - M, M + 7.5, { align: 'right' });
-  doc.setDrawColor(brand[0], brand[1], brand[2]);
-  doc.setLineWidth(0.5);
-  doc.line(M, M + 11, pageW - M, M + 11);
+  doc.setTextColor(204, 251, 241);
+  doc.text(P(s.adresse), M, 17);
+  doc.text(P(`Tél : ${s.telephone}${s.email ? ' · ' + s.email : ''}`), M, 21.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text('DOSSIER MÉDICAL', pageW - M, 13, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(204, 251, 241);
+  doc.text(`Édité le ${P(fmtDateLong(todayISO()))}`, pageW - M, 18.5, { align: 'right' });
 
   // ── Bandeau patient (badge initiales + identité) ──
-  let y = M + 17;
+  let y = headerH + 8;
   const bannerH = 18;
   doc.setFillColor(240, 253, 250);
   doc.setDrawColor(153, 246, 228);
@@ -411,28 +414,31 @@ export function downloadDossierPDF(filename: string, o: PdfDossier) {
   }
   y += bannerH + 4;
 
-  // ── Indicateurs (chips) ──
+  // ── Indicateurs (chips avec liseré d'accent) ──
   if (o.stats?.length) {
     const n = o.stats.length;
     const gap = 3;
     const chipW = (contentW - gap * (n - 1)) / n;
-    const chipH = 13;
+    const chipH = 14;
     o.stats.forEach((k, i) => {
       const x = M + i * (chipW + gap);
-      doc.setFillColor(248, 250, 252);
+      doc.setFillColor(255, 255, 255);
       doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.2);
+      doc.setLineWidth(0.25);
       doc.roundedRect(x, y, chipW, chipH, 1.8, 1.8, 'FD');
+      // Liseré d'accent en haut de la carte
+      doc.setFillColor(brand[0], brand[1], brand[2]);
+      doc.roundedRect(x, y, chipW, 1.1, 0.55, 0.55, 'F');
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
-      doc.text(P(k.label).toUpperCase(), x + 3, y + 4.4);
+      doc.text(P(k.label).toUpperCase(), x + 3, y + 5.4);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text(P(k.value), x + 3, y + 9.8);
+      doc.setTextColor(15, 118, 110);
+      doc.text(P(k.value), x + 3, y + 10.8);
     });
-    y += chipH + 7;
+    y += chipH + 8;
   } else {
     y += 2;
   }
@@ -467,12 +473,17 @@ export function downloadDossierPDF(filename: string, o: PdfDossier) {
         doc.setFontSize(8.5);
         const wrapped = items.map((it) => (it ? (doc.splitTextToSize(P(it.value || '—'), valueW) as string[]) : []));
         const rowLines = Math.max(1, ...wrapped.map((w) => w.length));
-        const rowH = rowLines * lineH + 2.2;
+        const rowH = rowLines * lineH + 3;
         y = breakIf(rowH, y);
+        // Zébrure une ligne sur deux
+        if (i % 2 === 1) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(M, y - 3.4, contentW, rowH, 'F');
+        }
         for (const col of [0, 1]) {
           const item = items[col];
           if (!item) continue;
-          const x = M + col * colW + (col === 1 ? 4 : 0);
+          const x = M + 2 + col * colW + (col === 1 ? 4 : 0);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8.5);
           doc.setTextColor(100, 116, 139);
@@ -481,14 +492,7 @@ export function downloadDossierPDF(filename: string, o: PdfDossier) {
           doc.setTextColor(30, 41, 59);
           doc.text(wrapped[col], x + labelW, y);
         }
-        y += rowH - 2.2;
-        // Filet séparateur (sauf après la dernière ligne)
-        if (i < half - 1) {
-          doc.setDrawColor(241, 245, 249);
-          doc.setLineWidth(0.15);
-          doc.line(M, y + 0.8, pageW - M, y + 0.8);
-        }
-        y += 3;
+        y += rowH;
       }
       y += 4;
     } else if (sec.type === 'kv') {
@@ -564,6 +568,17 @@ export function downloadDossierPDF(filename: string, o: PdfDossier) {
   }
 
   footer();
+
+  // Numérotation « Page i / n » sur chaque page
+  const nPages = doc.getNumberOfPages();
+  for (let i = 1; i <= nPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Page ${i} / ${nPages}`, pageW - M, pageH - M + 9.5, { align: 'right' });
+  }
+
   doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
 }
 
