@@ -22,7 +22,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n';
-import { age, fmtDate, initials, downloadListePDF, slugify } from '@/lib/utils';
+import { age, fmtDate, initials, fmtMoney, downloadListePDF, downloadDossierPDF, slugify } from '@/lib/utils';
 import { useLabels } from '@/lib/labels';
 import type { Patient, Sexe, StatutPatient, AbordVasculaire, PriseEnCharge, SituationFamiliale, Serologie } from '@/types';
 
@@ -74,7 +74,7 @@ const emptyForm = {
 };
 
 export default function Patients() {
-  const { patients, staff, settings, addPatient, updatePatient, deletePatient, setPatients } = useStore();
+  const { patients, staff, settings, seances, prescriptions, factures, machines, addPatient, updatePatient, deletePatient, setPatients } = useStore();
   const { canWrite, canDelete } = useAuth();
   const { t } = useT();
   const L = useLabels();
@@ -104,6 +104,151 @@ export default function Patients() {
   const nephrologueName = (id: string) => {
     const n = staff.find((s) => s.id === id);
     return n ? `Dr ${n.prenom} ${n.nom}` : '—';
+  };
+
+  /** Télécharge le dossier médical complet d'un patient (identité, médical,
+   *  prescriptions, séances, facturation) en un PDF structuré. */
+  const exportDossier = (p: Patient) => {
+    const sero = (v: string) => t(`sero.${v}`);
+    const neph = staff.find((x) => x.id === p.nephrologueId);
+    const pSeances = seances
+      .filter((s) => s.patientId === p.id)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const pPrescriptions = prescriptions
+      .filter((x) => x.patientId === p.id)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const pFactures = factures
+      .filter((f) => f.patientId === p.id)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const aCharge = (f: (typeof pFactures)[number]) => f.montantTotal * (1 - f.partAssurance / 100);
+    const reelles = pFactures.filter((f) => !f.proforma);
+    const totalFacture = reelles.reduce((a, f) => a + f.montantTotal, 0);
+    const totalPaye = reelles.reduce((a, f) => a + f.montantPaye, 0);
+    const resteDu = reelles.reduce((a, f) => a + Math.max(0, aCharge(f) - f.montantPaye), 0);
+    const ta = (sys?: number, dia?: number) => (sys && dia ? `${sys}/${dia}` : '—');
+    const pec = p.prisesEnCharge?.length
+      ? p.prisesEnCharge.map((r) => `${L.priseEnChargeLabel[r.type]} ${r.pourcentage}%`).join(' + ')
+      : L.priseEnChargeLabel[p.priseEnCharge];
+
+    downloadDossierPDF(`dossier-medical-${slugify(`${p.prenom}-${p.nom}`)}-${slugify(p.code)}`, {
+      settings,
+      titrePatient: `${p.prenom} ${p.nom} (${p.code})`,
+      sousTitre: [
+        `${age(p.dateNaissance)} ${t('pt.ageUnit')}`,
+        p.sexe === 'M' ? t('pt.man') : t('pt.woman'),
+        `Groupe ${p.groupeSanguin}`,
+        L.statutPatient[p.statut].label,
+      ].join(' · '),
+      sections: [
+        {
+          type: 'infos',
+          titre: 'Identité & coordonnées',
+          rows: [
+            { label: 'Né(e) le', value: `${fmtDate(p.dateNaissance)}${p.lieuNaissance ? ` à ${p.lieuNaissance}` : ''}` },
+            { label: 'Nationalité', value: p.nationalite ?? '—' },
+            { label: 'N° CNI', value: p.numCNI ?? '—' },
+            { label: 'Situation', value: p.situationFamiliale ? L.situationFamilialeLabel[p.situationFamiliale] : '—' },
+            { label: 'Taille', value: p.taille ? `${p.taille} cm` : '—' },
+            { label: 'Téléphone', value: p.telephone },
+            { label: 'Adresse', value: p.adresse },
+            { label: 'Urgence', value: p.contactUrgence?.nom ? `${p.contactUrgence.nom} — ${p.contactUrgence.telephone}` : '—' },
+            { label: 'Prise en charge', value: pec },
+            { label: 'N° assurance', value: p.numAssurance ?? '—' },
+          ],
+        },
+        {
+          type: 'infos',
+          titre: 'Dossier néphrologique',
+          rows: [
+            { label: 'Néphropathie', value: p.nephropathie },
+            { label: 'Néphrologue', value: neph ? `Dr ${neph.prenom} ${neph.nom}` : '—' },
+            { label: 'Début dialyse', value: fmtDate(p.dateDebutDialyse) },
+            { label: '1re au centre', value: p.datePremiereDialyseCentre ? fmtDate(p.datePremiereDialyseCentre) : '—' },
+            { label: 'Centre d’origine', value: p.centreOrigine ?? '—' },
+            { label: 'Fréquence', value: `${p.frequenceHebdo} séances/sem` },
+            { label: 'Poids sec', value: `${p.poidsSec} kg` },
+            { label: 'Abord vasculaire', value: L.abordLabel[p.abord] },
+            { label: 'Dialyseur', value: [p.dialyseurType, p.dialyseurSurface].filter(Boolean).join(' · ') || '—' },
+            { label: 'Anticoagulant', value: p.anticoagulant ?? '—' },
+            { label: 'Sérologies', value: p.serologies ? `VHB ${sero(p.serologies.vhb)} · VHC ${sero(p.serologies.vhc)} · VIH ${sero(p.serologies.vih)}` : '—' },
+            { label: 'Vaccin VHB', value: p.vaccinationVHB ? 'Oui' : 'Non' },
+            { label: 'Allergies', value: p.allergies || '—' },
+            { label: 'Antécédents', value: p.antecedents?.length ? p.antecedents.join(' ; ') : '—' },
+          ],
+        },
+        {
+          type: 'table',
+          titre: `Prescriptions (${pPrescriptions.length})`,
+          headers: ['Date', 'Néphrologue', 'Dialyseur', 'Durée', 'Fréq.', 'Qb', 'Qd', 'Anticoagulation', 'Traitement', 'Statut'],
+          aligns: ['left', 'left', 'left', 'right', 'center', 'right', 'right', 'left', 'left', 'left'],
+          rows: pPrescriptions.map((x) => {
+            const n = staff.find((st) => st.id === x.nephrologueId);
+            return [
+              fmtDate(x.date),
+              n ? `Dr ${n.prenom} ${n.nom}` : '—',
+              x.dialyseur,
+              `${x.dureeSeance} min`,
+              `${x.frequenceHebdo}/sem`,
+              x.debitSang,
+              x.debitDialysat,
+              x.anticoagulation,
+              x.medicaments.filter((m) => m.nom).map((m) => `${m.nom} (${m.posologie})`).join(' ; '),
+              x.active ? 'Active' : 'Remplacée',
+            ];
+          }),
+          vide: 'Aucune prescription enregistrée.',
+        },
+        {
+          type: 'table',
+          titre: `Séances de dialyse (${pSeances.length})`,
+          headers: ['Date', 'Créneau', 'Poste', 'Durée', 'Poids av./ap.', 'TA av.', 'TA ap.', 'UF (L)', 'Kt/V', 'Statut', 'Incidents'],
+          aligns: ['left', 'left', 'left', 'right', 'center', 'center', 'center', 'right', 'right', 'left', 'left'],
+          rows: pSeances.map((s) => {
+            const m = machines.find((x) => x.id === s.machineId);
+            return [
+              fmtDate(s.date),
+              L.creneauLabel[s.creneau],
+              m?.code ?? '—',
+              `${s.dureeMinutes} min`,
+              s.poidsAvant && s.poidsApres ? `${s.poidsAvant} / ${s.poidsApres} kg` : '—',
+              ta(s.taSystoliqueAvant, s.taDiastoliqueAvant),
+              ta(s.taSystoliqueApres, s.taDiastoliqueApres),
+              s.ufTotal ?? '—',
+              s.ktv ?? '—',
+              L.statutSeance[s.statut].label,
+              s.incidents || '—',
+            ];
+          }),
+          vide: 'Aucune séance enregistrée.',
+        },
+        {
+          type: 'table',
+          titre: `Facturation (${pFactures.length})`,
+          headers: ['N° Facture', 'Date', 'Prise en charge', 'Montant total', 'À charge patient', 'Payé', 'Statut'],
+          aligns: ['left', 'left', 'left', 'right', 'right', 'right', 'left'],
+          rows: pFactures.map((f) => [
+            `${f.numero}${f.proforma ? ' (Pro forma)' : ''}`,
+            fmtDate(f.date),
+            `${L.priseEnChargeLabel[f.priseEnCharge]} (${f.partAssurance}%)`,
+            fmtMoney(f.montantTotal, settings.devise),
+            fmtMoney(aCharge(f), settings.devise),
+            fmtMoney(f.montantPaye, settings.devise),
+            L.statutFacture[f.statut].label,
+          ]),
+          vide: 'Aucune facture enregistrée.',
+        },
+        {
+          type: 'texte',
+          titre: 'Synthèse financière',
+          lignes: [
+            `Total facturé (hors pro forma) : ${fmtMoney(totalFacture, settings.devise)}.`,
+            `Total encaissé : ${fmtMoney(totalPaye, settings.devise)}.`,
+            `Reste dû (part patient) : ${fmtMoney(resteDu, settings.devise)}.`,
+            ...(p.notes ? ['', `Notes : ${p.notes}`] : []),
+          ],
+        },
+      ],
+    });
   };
 
   const exportPDF = () => {
@@ -333,6 +478,15 @@ export default function Patients() {
                         onView={() => navigate(`/patients/${p.id}`)}
                         onEdit={editable ? () => openEdit(p) : undefined}
                         onDelete={deletable ? () => setDeleteTarget(p) : undefined}
+                        extra={
+                          <button
+                            title={t('pt.downloadDossier')}
+                            onClick={() => exportDossier(p)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600"
+                          >
+                            <FileText size={15} />
+                          </button>
+                        }
                       />
                     </Td>
                   </tr>

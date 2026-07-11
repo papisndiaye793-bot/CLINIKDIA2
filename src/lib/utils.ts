@@ -301,6 +301,176 @@ export function downloadDashboardPDF(filename: string, o: PdfDashboard) {
   doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
 }
 
+// ─── Export PDF — Dossier médical patient ────────────────────────────────────
+type DossierSection =
+  | { type: 'infos'; titre: string; rows: { label: string; value: string }[] }
+  | { type: 'table'; titre: string; headers: string[]; rows: (string | number)[][]; aligns?: ('left' | 'right' | 'center')[]; vide?: string }
+  | { type: 'texte'; titre: string; lignes: string[] };
+
+type PdfDossier = {
+  settings: ClinicSettings;
+  titrePatient: string; // « Prénom Nom (PAT-0001) »
+  sousTitre?: string; // âge · sexe · groupe sanguin…
+  sections: DossierSection[];
+};
+
+/**
+ * Génère le dossier médical complet d'un patient : en-tête clinique, bandeau
+ * patient, puis sections (fiches d'informations en 2 colonnes, tableaux
+ * paginés, blocs de texte), avec pied de page répété sur chaque page.
+ */
+export function downloadDossierPDF(filename: string, o: PdfDossier) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 14;
+  const contentW = pageW - 2 * M;
+  const brand: [number, number, number] = [13, 148, 136];
+  const s = o.settings;
+  const P = (v: unknown) => String(v ?? '').replace(/[\u202F\u00A0\u2009\u2007]/g, ' ');
+
+  const footer = () => {
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.line(M, pageH - M + 2, pageW - M, pageH - M + 2);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(P(`${s.nom} — ${s.adresse} · ${s.telephone} · ${s.email}`), pageW / 2, pageH - M + 6, { align: 'center', maxWidth: contentW });
+    doc.text('Document confidentiel — secret médical', pageW / 2, pageH - M + 9.5, { align: 'center' });
+  };
+  const breakIf = (needed: number, y: number): number => {
+    if (y + needed > pageH - M - 6) { footer(); doc.addPage(); return M; }
+    return y;
+  };
+
+  // ── En-tête clinique ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  doc.text(P(s.nom), M, M + 2);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(P(`${s.adresse} · Tél : ${s.telephone}`), M, M + 7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(15, 118, 110);
+  doc.text('DOSSIER MÉDICAL', pageW - M, M + 2, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Édité le ${P(fmtDateLong(todayISO()))}`, pageW - M, M + 7.5, { align: 'right' });
+  doc.setDrawColor(brand[0], brand[1], brand[2]);
+  doc.setLineWidth(0.5);
+  doc.line(M, M + 11, pageW - M, M + 11);
+
+  // ── Bandeau patient ──
+  let y = M + 17;
+  doc.setFillColor(240, 253, 250);
+  doc.setDrawColor(204, 251, 241);
+  doc.roundedRect(M, y, contentW, 14, 2, 2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(15, 23, 42);
+  doc.text(P(o.titrePatient), M + 5, y + 6.5);
+  if (o.sousTitre) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(P(o.sousTitre), M + 5, y + 11);
+  }
+  y += 20;
+
+  const sectionTitle = (titre: string) => {
+    y = breakIf(14, y);
+    doc.setFillColor(brand[0], brand[1], brand[2]);
+    doc.rect(M, y - 3.2, 1.4, 4.4, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 118, 110);
+    doc.text(P(titre).toUpperCase(), M + 3.5, y);
+    y += 2;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.line(M, y, pageW - M, y);
+    y += 5;
+  };
+
+  for (const sec of o.sections) {
+    sectionTitle(sec.titre);
+
+    if (sec.type === 'infos') {
+      // Fiche en 2 colonnes label/valeur
+      const colW = contentW / 2;
+      const rowH = 5.4;
+      const half = Math.ceil(sec.rows.length / 2);
+      for (let i = 0; i < half; i++) {
+        y = breakIf(rowH, y);
+        for (const col of [0, 1]) {
+          const item = sec.rows[i + col * half];
+          if (!item) continue;
+          const x = M + col * colW;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(P(item.label), x, y);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(30, 41, 59);
+          doc.text(P(item.value || '—'), x + 34, y, { maxWidth: colW - 38 });
+        }
+        y += rowH;
+      }
+      y += 4;
+    } else if (sec.type === 'table') {
+      if (sec.rows.length === 0) {
+        y = breakIf(8, y);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        doc.setTextColor(148, 163, 184);
+        doc.text(P(sec.vide ?? 'Aucune donnée.'), M, y);
+        y += 8;
+      } else {
+        const columnStyles: Record<number, { halign: 'left' | 'right' | 'center' }> = {};
+        (sec.aligns ?? []).forEach((a, i) => { if (a) columnStyles[i] = { halign: a }; });
+        autoTable(doc, {
+          head: [sec.headers.map(P)],
+          body: sec.rows.map((r) => r.map((c) => P(c))),
+          startY: y,
+          margin: { left: M, right: M, bottom: M + 10 },
+          tableWidth: contentW,
+          styles: { fontSize: 7.5, cellPadding: 1.8, textColor: [30, 41, 59], lineColor: [226, 232, 240], lineWidth: 0.1, overflow: 'linebreak', valign: 'top' },
+          headStyles: { fillColor: brand, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          columnStyles,
+          didDrawPage: (data) => { if (data.pageNumber > 1 || data.cursor) footer(); },
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        y = ((doc as any).lastAutoTable?.finalY ?? y) + 7;
+      }
+    } else {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(30, 41, 59);
+      for (const ligne of sec.lignes) {
+        const wrapped = doc.splitTextToSize(P(ligne), contentW) as string[];
+        for (const l of wrapped) {
+          y = breakIf(5.2, y);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9.5);
+          doc.setTextColor(30, 41, 59);
+          doc.text(l, M, y);
+          y += 5.2;
+        }
+      }
+      y += 4;
+    }
+  }
+
+  footer();
+  doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+}
+
 // ─── Export PDF — Document administratif RH ──────────────────────────────────
 type PdfDocument = {
   settings: ClinicSettings;
