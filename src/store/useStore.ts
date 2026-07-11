@@ -24,6 +24,7 @@ import type {
   Archive,
   DocumentRH,
   Pointage,
+  Visiteur,
 } from '@/types';
 import * as seed from '@/data/seed';
 import { validatePassword } from '@/lib/utils';
@@ -85,6 +86,7 @@ interface State {
   archives: Archive[];
   documentsRH: DocumentRH[];
   pointages: Pointage[];
+  visiteurs: Visiteur[];
 
   // Patients
   addPatient: (p: Omit<Patient, 'id' | 'code' | 'createdAt'>) => void;
@@ -171,6 +173,11 @@ interface State {
   addPointage: (p: Omit<Pointage, 'id'>) => Pointage;
   deletePointage: (id: string) => void;
 
+  // GRH — visiteurs & accompagnants (cartes temporaires)
+  addVisiteur: (v: Omit<Visiteur, 'id' | 'code' | 'createdAt' | 'actif'>) => Visiteur;
+  updateVisiteur: (id: string, v: Partial<Visiteur>) => void;
+  deleteVisiteur: (id: string) => void;
+
   // Paie — barème des taux (IPRES, CSS, IPM, IR, TRIMF)
   updatePaieBareme: (b: PaieBareme) => void;
 
@@ -213,6 +220,7 @@ const seedState = () => ({
   archives: [],
   documentsRH: [],
   pointages: [],
+  visiteurs: [],
 });
 
 const slugify = (s: string) =>
@@ -548,6 +556,24 @@ export const useStore = create<State>()(
       deletePointage: (id) =>
         set((st) => ({ pointages: st.pointages.filter((x) => x.id !== id) })),
 
+      addVisiteur: (v) => {
+        const seq = get().visiteurs.length + 1;
+        const visiteur: Visiteur = {
+          ...v,
+          id: uid(),
+          code: `VIS-${String(seq).padStart(4, '0')}`,
+          actif: true,
+          createdAt: new Date().toISOString(),
+        };
+        set((st) => ({ visiteurs: [visiteur, ...st.visiteurs] }));
+        get().logAction('create', 'grh', `Carte visiteur créée : ${v.prenom ?? ''} ${v.nom}`.trim());
+        return visiteur;
+      },
+      updateVisiteur: (id, v) =>
+        set((st) => ({ visiteurs: st.visiteurs.map((x) => (x.id === id ? { ...x, ...v } : x)) })),
+      deleteVisiteur: (id) =>
+        set((st) => ({ visiteurs: st.visiteurs.filter((x) => x.id !== id) })),
+
       updatePaieBareme: (b) => set({ paieBareme: b }),
 
       // ─── Dépenses ───────────────────────────────────────────────────────
@@ -600,7 +626,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'clinikdia-store',
-      version: 15,
+      version: 16,
       // Conserve les données existantes et complète les nouveaux champs
       // (identité légale, contrôles QHSE, canaux de messagerie…).
       migrate: (persisted) => {
@@ -620,7 +646,9 @@ export const useStore = create<State>()(
           exercice: p.exercice ?? new Date().getFullYear(),
           archives: p.archives ?? [],
           documentsRH: p.documentsRH ?? [],
-          pointages: p.pointages ?? [],
+          // Les anciens pointages n'avaient pas de catégorie : ce sont des employés.
+          pointages: (p.pointages ?? []).map((pt) => ({ ...pt, categorie: pt.categorie ?? 'employe' })),
+          visiteurs: p.visiteurs ?? [],
         } as State;
       },
     }

@@ -132,10 +132,30 @@ export interface Staff {
   photoUrl?: string; // photo d'identité (dataURL) pour le badge
 }
 
+/** Catégorie d'une personne pointant à la borne. */
+export type CategoriePresence = 'employe' | 'accompagnant' | 'visiteur';
+
+/** Personne externe (accompagnant d'un patient ou visiteur) munie d'une carte. */
+export interface Visiteur {
+  id: string;
+  code: string; // VIS-0001
+  nom: string;
+  prenom?: string;
+  categorie: 'accompagnant' | 'visiteur';
+  motif?: string; // raison de la visite
+  patientAccompagne?: string; // patient accompagné (pour un accompagnant)
+  telephone?: string;
+  photoUrl?: string; // dataURL pour la carte
+  actif: boolean; // carte active (désactivée = accès révoqué)
+  createdAt: string;
+}
+
 /** Événement de pointage (badgeage entrée/sortie à la borne). */
 export interface Pointage {
   id: string;
-  staffId: string;
+  categorie: CategoriePresence; // employé / accompagnant / visiteur
+  staffId?: string; // renseigné si categorie === 'employe'
+  visiteurId?: string; // renseigné si accompagnant / visiteur
   type: 'entree' | 'sortie';
   horodatage: string; // ISO datetime complet
   methode: 'qr' | 'manuel';
