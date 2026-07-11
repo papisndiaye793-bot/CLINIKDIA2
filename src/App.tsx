@@ -67,7 +67,17 @@ export const router = createBrowserRouter([
       { path: 'parametres', element: <Parametres /> },
     ],
   },
-]);
+], {
+  // Opt-in anticipé aux comportements de React Router v7 (supprime les
+  // avertissements « Future Flag Warning » en console).
+  future: {
+    v7_relativeSplatPath: true,
+    v7_fetcherPersist: true,
+    v7_normalizeFormMethod: true,
+    v7_partialHydration: true,
+    v7_skipActionErrorRevalidation: true,
+  },
+});
 
 function AuthHydrator() {
   const syncUser = useStore((s) => s.syncUser);
@@ -110,7 +120,7 @@ export default function App() {
   return (
     <>
       <AuthHydrator />
-      <RouterProvider router={router} />
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
     </>
   );
 }

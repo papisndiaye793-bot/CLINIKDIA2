@@ -342,9 +342,9 @@ export default function Patients() {
       dialyseurType: p.dialyseurType ?? '',
       dialyseurSurface: p.dialyseurSurface ?? '',
       anticoagulant: p.anticoagulant ?? '',
-      vhb: p.serologies.vhb,
-      vhc: p.serologies.vhc,
-      vih: p.serologies.vih,
+      vhb: p.serologies?.vhb ?? 'inconnu',
+      vhc: p.serologies?.vhc ?? 'inconnu',
+      vih: p.serologies?.vih ?? 'inconnu',
       vaccinationVHB: p.vaccinationVHB ?? false,
       allergies: p.allergies ?? '',
     });

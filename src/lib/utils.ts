@@ -79,9 +79,17 @@ export const slugify = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
 
 // ─── Export PDF (jsPDF + autotable) ──────────────────────────────────────────
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// jsPDF et son plugin autotable pèsent lourd : ils sont chargés à la demande
+// (import dynamique) pour ne pas alourdir le bundle initial de l'application.
 import type { ClinicSettings } from '@/types';
+
+async function loadPdf() {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
+  return { jsPDF, autoTable };
+}
 
 type PdfListe = {
   settings: ClinicSettings;
@@ -101,7 +109,8 @@ type PdfListe = {
  * Génère et télécharge un PDF « liste » : en-tête clinique, tableau paginé,
  * synthèse optionnelle et pied de page répété sur chaque page.
  */
-export function downloadListePDF(filename: string, o: PdfListe) {
+export async function downloadListePDF(filename: string, o: PdfListe) {
+  const { jsPDF, autoTable } = await loadPdf();
   const doc = new jsPDF({ orientation: o.orientation ?? 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -201,7 +210,8 @@ type PdfDashboard = {
 };
 
 /** Génère un PDF portrait du tableau de bord : grille de KPI + analyse rédigée. */
-export function downloadDashboardPDF(filename: string, o: PdfDashboard) {
+export async function downloadDashboardPDF(filename: string, o: PdfDashboard) {
+  const { jsPDF, autoTable } = await loadPdf();
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -324,7 +334,8 @@ type PdfDossier = {
  * patient, puis sections (fiches d'informations en 2 colonnes, tableaux
  * paginés, blocs de texte), avec pied de page répété sur chaque page.
  */
-export function downloadDossierPDF(filename: string, o: PdfDossier) {
+export async function downloadDossierPDF(filename: string, o: PdfDossier) {
+  const { jsPDF, autoTable } = await loadPdf();
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -595,7 +606,8 @@ type PdfDocument = {
 };
 
 /** Génère un document administratif RH en PDF portrait A4, corps justifié. */
-export function downloadDocumentPDF(filename: string, o: PdfDocument) {
+export async function downloadDocumentPDF(filename: string, o: PdfDocument) {
+  const { jsPDF, autoTable } = await loadPdf();
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();

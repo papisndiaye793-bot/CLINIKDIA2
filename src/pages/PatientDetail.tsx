@@ -130,23 +130,26 @@ export default function PatientDetail() {
               <Row label={t('pd.r.dialyzer')} value={patient.dialyseurType ? `${patient.dialyseurType}${patient.dialyseurSurface ? ` · ${patient.dialyseurSurface}` : ''}` : '—'} />
               <Row label={t('pd.r.anticoag')} value={patient.anticoagulant || '—'} />
               <Row label={t('pd.r.allergies')} value={patient.allergies || t('common.none')} />
-              <Row label={t('pd.r.antecedents')} value={patient.antecedents.length ? patient.antecedents.join(', ') : '—'} />
+              <Row label={t('pd.r.antecedents')} value={patient.antecedents?.length ? patient.antecedents.join(', ') : '—'} />
               <Row label={t('pd.r.coverage')} value={`${L.priseEnChargeLabel[patient.priseEnCharge]}${patient.numAssurance ? ` (${patient.numAssurance})` : ''}`} />
             </dl>
           </Card>
           <Card>
             <CardHeader title={t('pd.sero')} subtitle={t('pd.seroSub')} />
             <div className="grid grid-cols-3 gap-3 p-5">
-              {(['vhb', 'vhc', 'vih'] as const).map((k) => (
-                <div key={k} className="rounded-lg border border-slate-200 p-4 text-center">
-                  <div className="text-xs uppercase text-slate-400">{k}</div>
-                  <div className="mt-2">
-                    <Badge tone={serologieTone[patient.serologies[k]]}>
-                      {t(`sero.${patient.serologies[k]}`)}
-                    </Badge>
+              {(['vhb', 'vhc', 'vih'] as const).map((k) => {
+                // Les patients chargés depuis l'API peuvent ne pas avoir de
+                // sérologies renseignées : on affiche alors « inconnu ».
+                const v = patient.serologies?.[k] ?? 'inconnu';
+                return (
+                  <div key={k} className="rounded-lg border border-slate-200 p-4 text-center">
+                    <div className="text-xs uppercase text-slate-400">{k}</div>
+                    <div className="mt-2">
+                      <Badge tone={serologieTone[v]}>{t(`sero.${v}`)}</Badge>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             {ktvData.length > 0 && (
               <>
