@@ -305,12 +305,17 @@ export function downloadDashboardPDF(filename: string, o: PdfDashboard) {
 type DossierSection =
   | { type: 'infos'; titre: string; rows: { label: string; value: string }[] }
   | { type: 'table'; titre: string; headers: string[]; rows: (string | number)[][]; aligns?: ('left' | 'right' | 'center')[]; vide?: string }
+  | { type: 'kv'; titre: string; rows: { label: string; value: string }[] }
   | { type: 'texte'; titre: string; lignes: string[] };
 
 type PdfDossier = {
   settings: ClinicSettings;
-  titrePatient: string; // « Prénom Nom (PAT-0001) »
+  titrePatient: string; // « Prénom Nom »
+  codePatient?: string; // « PAT-0001 »
+  initiales?: string; // « MD » — badge du bandeau
   sousTitre?: string; // âge · sexe · groupe sanguin…
+  /** Indicateurs affichés sous le bandeau (nb séances, total facturé…). */
+  stats?: { label: string; value: string }[];
   sections: DossierSection[];
 };
 
@@ -365,63 +370,154 @@ export function downloadDossierPDF(filename: string, o: PdfDossier) {
   doc.setLineWidth(0.5);
   doc.line(M, M + 11, pageW - M, M + 11);
 
-  // ── Bandeau patient ──
+  // ── Bandeau patient (badge initiales + identité) ──
   let y = M + 17;
+  const bannerH = 18;
   doc.setFillColor(240, 253, 250);
-  doc.setDrawColor(204, 251, 241);
-  doc.roundedRect(M, y, contentW, 14, 2, 2, 'FD');
+  doc.setDrawColor(153, 246, 228);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(M, y, contentW, bannerH, 2.5, 2.5, 'FD');
+  // Badge rond avec initiales
+  const cx = M + 10.5;
+  const cy = y + bannerH / 2;
+  doc.setFillColor(brand[0], brand[1], brand[2]);
+  doc.circle(cx, cy, 6, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text(P(o.initiales ?? o.titrePatient.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()), cx, cy + 1.6, { align: 'center' });
+  // Nom + sous-titre
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
   doc.setTextColor(15, 23, 42);
-  doc.text(P(o.titrePatient), M + 5, y + 6.5);
+  doc.text(P(o.titrePatient), M + 20, y + 8);
   if (o.sousTitre) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(P(o.sousTitre), M + 5, y + 11);
+    doc.text(P(o.sousTitre), M + 20, y + 13.5);
   }
-  y += 20;
+  if (o.codePatient) {
+    // Pastille code dossier à droite
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    const codeTxt = P(o.codePatient);
+    const cw = doc.getTextWidth(codeTxt) + 8;
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(153, 246, 228);
+    doc.roundedRect(pageW - M - cw - 4, y + bannerH / 2 - 3.6, cw, 7.2, 3.6, 3.6, 'FD');
+    doc.setTextColor(15, 118, 110);
+    doc.text(codeTxt, pageW - M - 4 - cw / 2, y + bannerH / 2 + 1.4, { align: 'center' });
+  }
+  y += bannerH + 4;
+
+  // ── Indicateurs (chips) ──
+  if (o.stats?.length) {
+    const n = o.stats.length;
+    const gap = 3;
+    const chipW = (contentW - gap * (n - 1)) / n;
+    const chipH = 13;
+    o.stats.forEach((k, i) => {
+      const x = M + i * (chipW + gap);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(x, y, chipW, chipH, 1.8, 1.8, 'FD');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(P(k.label).toUpperCase(), x + 3, y + 4.4);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(P(k.value), x + 3, y + 9.8);
+    });
+    y += chipH + 7;
+  } else {
+    y += 2;
+  }
 
   const sectionTitle = (titre: string) => {
-    y = breakIf(14, y);
+    y = breakIf(16, y);
+    // Bandeau de section plein
+    doc.setFillColor(240, 253, 250);
+    doc.roundedRect(M, y - 4.6, contentW, 7, 1.2, 1.2, 'F');
     doc.setFillColor(brand[0], brand[1], brand[2]);
-    doc.rect(M, y - 3.2, 1.4, 4.4, 'F');
+    doc.roundedRect(M, y - 4.6, 1.6, 7, 0.8, 0.8, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
+    doc.setFontSize(10);
     doc.setTextColor(15, 118, 110);
-    doc.text(P(titre).toUpperCase(), M + 3.5, y);
-    y += 2;
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.2);
-    doc.line(M, y, pageW - M, y);
-    y += 5;
+    doc.text(P(titre).toUpperCase(), M + 4.5, y);
+    y += 7;
   };
 
   for (const sec of o.sections) {
     sectionTitle(sec.titre);
 
     if (sec.type === 'infos') {
-      // Fiche en 2 colonnes label/valeur
+      // Fiche en 2 colonnes label/valeur, avec retour à la ligne des valeurs
+      // longues et filets discrets entre les lignes.
       const colW = contentW / 2;
-      const rowH = 5.4;
+      const labelW = 32;
+      const valueW = colW - labelW - 6;
+      const lineH = 4.4;
       const half = Math.ceil(sec.rows.length / 2);
       for (let i = 0; i < half; i++) {
+        const items = [sec.rows[i], sec.rows[i + half]];
+        doc.setFontSize(8.5);
+        const wrapped = items.map((it) => (it ? (doc.splitTextToSize(P(it.value || '—'), valueW) as string[]) : []));
+        const rowLines = Math.max(1, ...wrapped.map((w) => w.length));
+        const rowH = rowLines * lineH + 2.2;
         y = breakIf(rowH, y);
         for (const col of [0, 1]) {
-          const item = sec.rows[i + col * half];
+          const item = items[col];
           if (!item) continue;
-          const x = M + col * colW;
+          const x = M + col * colW + (col === 1 ? 4 : 0);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8.5);
           doc.setTextColor(100, 116, 139);
           doc.text(P(item.label), x, y);
           doc.setFont('helvetica', 'bold');
           doc.setTextColor(30, 41, 59);
-          doc.text(P(item.value || '—'), x + 34, y, { maxWidth: colW - 38 });
+          doc.text(wrapped[col], x + labelW, y);
         }
-        y += rowH;
+        y += rowH - 2.2;
+        // Filet séparateur (sauf après la dernière ligne)
+        if (i < half - 1) {
+          doc.setDrawColor(241, 245, 249);
+          doc.setLineWidth(0.15);
+          doc.line(M, y + 0.8, pageW - M, y + 0.8);
+        }
+        y += 3;
       }
       y += 4;
+    } else if (sec.type === 'kv') {
+      // Encadré de totaux (style synthèse) aligné à droite
+      const boxW = 90;
+      const boxH = sec.rows.length * 6.2 + 5;
+      y = breakIf(boxH + 4, y);
+      const boxX = pageW - M - boxW;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(boxX, y - 2, boxW, boxH, 1.8, 1.8, 'FD');
+      sec.rows.forEach((r, i) => {
+        const ly = y + 3 + i * 6.2;
+        const last = i === sec.rows.length - 1;
+        doc.setFont('helvetica', last ? 'bold' : 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(last ? 15 : 71, last ? 23 : 85, last ? 42 : 105);
+        doc.text(P(r.label), boxX + 4, ly);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text(P(r.value), boxX + boxW - 4, ly, { align: 'right' });
+        if (last && sec.rows.length > 1) {
+          doc.setDrawColor(203, 213, 225);
+          doc.setLineWidth(0.2);
+          doc.line(boxX + 3, ly - 4.4, boxX + boxW - 3, ly - 4.4);
+        }
+      });
+      y += boxH + 5;
     } else if (sec.type === 'table') {
       if (sec.rows.length === 0) {
         y = breakIf(8, y);

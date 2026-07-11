@@ -132,13 +132,22 @@ export default function Patients() {
 
     downloadDossierPDF(`dossier-medical-${slugify(`${p.prenom}-${p.nom}`)}-${slugify(p.code)}`, {
       settings,
-      titrePatient: `${p.prenom} ${p.nom} (${p.code})`,
+      titrePatient: `${p.prenom} ${p.nom}`,
+      codePatient: p.code,
+      initiales: initials(p.nom, p.prenom),
       sousTitre: [
         `${age(p.dateNaissance)} ${t('pt.ageUnit')}`,
         p.sexe === 'M' ? t('pt.man') : t('pt.woman'),
-        `Groupe ${p.groupeSanguin}`,
-        L.statutPatient[p.statut].label,
-      ].join(' · '),
+        p.groupeSanguin ? `Groupe ${p.groupeSanguin}` : '',
+        L.statutPatient[p.statut]?.label,
+      ].filter(Boolean).join(' · '),
+      stats: [
+        { label: 'Séances', value: String(pSeances.length) },
+        { label: 'Prescriptions', value: String(pPrescriptions.length) },
+        { label: 'Factures', value: String(pFactures.length) },
+        { label: 'Total facturé', value: fmtMoney(totalFacture, settings.devise) },
+        { label: 'Reste dû', value: fmtMoney(resteDu, settings.devise) },
+      ],
       sections: [
         {
           type: 'infos',
@@ -165,8 +174,8 @@ export default function Patients() {
             { label: 'Début dialyse', value: fmtDate(p.dateDebutDialyse) },
             { label: '1re au centre', value: p.datePremiereDialyseCentre ? fmtDate(p.datePremiereDialyseCentre) : '—' },
             { label: 'Centre d’origine', value: p.centreOrigine ?? '—' },
-            { label: 'Fréquence', value: `${p.frequenceHebdo} séances/sem` },
-            { label: 'Poids sec', value: `${p.poidsSec} kg` },
+            { label: 'Fréquence', value: p.frequenceHebdo ? `${p.frequenceHebdo} séances/sem` : '—' },
+            { label: 'Poids sec', value: p.poidsSec ? `${p.poidsSec} kg` : '—' },
             { label: 'Abord vasculaire', value: L.abordLabel[p.abord] },
             { label: 'Dialyseur', value: [p.dialyseurType, p.dialyseurSurface].filter(Boolean).join(' · ') || '—' },
             { label: 'Anticoagulant', value: p.anticoagulant ?? '—' },
@@ -238,15 +247,15 @@ export default function Patients() {
           vide: 'Aucune facture enregistrée.',
         },
         {
-          type: 'texte',
+          type: 'kv',
           titre: 'Synthèse financière',
-          lignes: [
-            `Total facturé (hors pro forma) : ${fmtMoney(totalFacture, settings.devise)}.`,
-            `Total encaissé : ${fmtMoney(totalPaye, settings.devise)}.`,
-            `Reste dû (part patient) : ${fmtMoney(resteDu, settings.devise)}.`,
-            ...(p.notes ? ['', `Notes : ${p.notes}`] : []),
+          rows: [
+            { label: 'Total facturé (hors pro forma)', value: fmtMoney(totalFacture, settings.devise) },
+            { label: 'Total encaissé', value: fmtMoney(totalPaye, settings.devise) },
+            { label: 'Reste dû (part patient)', value: fmtMoney(resteDu, settings.devise) },
           ],
         },
+        ...(p.notes ? [{ type: 'texte' as const, titre: 'Notes', lignes: [p.notes] }] : []),
       ],
     });
   };
