@@ -10,8 +10,9 @@ import { PatientsModule } from './patients/patients.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // Anti-force brute global : 10 requêtes / minute / IP (ISO 27002 8.5)
-    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60, limit: 10 }] }),
+    // Anti-force brute global : 100 requêtes / minute / IP (ISO 27002 8.5).
+    // ttl en millisecondes (@nestjs/throttler v6) → 60 000 ms = 1 minute.
+    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 100 }] }),
     PrismaModule,
     AuditModule,
     AuthModule,

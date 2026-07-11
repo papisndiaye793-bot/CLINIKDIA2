@@ -17,7 +17,7 @@ export class AuthController {
   }
 
   // Limite renforcée sur le login : 5 tentatives / minute (anti-force brute, 8.5)
-  @Throttle({ default: { ttl: 60, limit: 5 } })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { token, user } = await this.auth.login(dto.email, dto.password, dto.totp);
@@ -51,7 +51,7 @@ export class AuthController {
     return this.auth.changePassword(req.user.sub, dto.current, dto.next);
   }
 
-  @Throttle({ default: { ttl: 60, limit: 3 } })
+  @Throttle({ default: { ttl: 60_000, limit: 3 } })
   @Post('request-reset')
   requestReset(@Body() dto: RequestResetDto) {
     return this.auth.requestReset(dto.email);
