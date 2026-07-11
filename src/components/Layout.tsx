@@ -44,6 +44,9 @@ type NavItem = {
   key: ModuleKey;
   icon: LucideIcon;
   label: string;
+  /** Clé i18n du libellé affiché (défaut : `nav.${key}`). Utile quand plusieurs
+   *  entrées partagent la même permission mais doivent avoir un libellé distinct. */
+  navKey?: string;
   end?: boolean;
   badge?: { count: number; tone: 'brand' | 'amber' | 'red' };
 };
@@ -57,7 +60,7 @@ const allNav: NavItem[] = [
   { to: '/prescriptions', key: 'prescriptions', icon: ClipboardList, label: 'Prescriptions' },
   { to: '/grh', key: 'grh', icon: Briefcase, label: 'GRH' },
   { to: '/personnel', key: 'personnel', icon: UserCog, label: 'Personnel' },
-  { to: '/pointage', key: 'grh', icon: ScanLine, label: 'Borne de pointage' },
+  { to: '/pointage', key: 'grh', navKey: 'nav.pointage', icon: ScanLine, label: 'Pointage' },
   { to: '/stock', key: 'stock', icon: Boxes, label: 'Stock' },
   { to: '/facturation', key: 'facturation', icon: Receipt, label: 'Facturation' },
   { to: '/paie', key: 'paie', icon: Banknote, label: 'Paie' },
@@ -111,7 +114,7 @@ function NavItemLink({ item }: { item: NavItem }) {
           >
             <item.icon size={18} />
           </span>
-          <span className="truncate">{t(`nav.${item.key}`)}</span>
+          <span className="truncate">{t(item.navKey ?? `nav.${item.key}`)}</span>
           {item.badge && <CountBadge tone={item.badge.tone} count={item.badge.count} />}
         </>
       )}
@@ -441,7 +444,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
         >
           <Menu size={20} />
         </button>
-        <span className="font-semibold text-slate-800">{current ? t(`nav.${current.key}`) : 'ClinikDia'}</span>
+        <span className="font-semibold text-slate-800">{current ? t(current.navKey ?? `nav.${current.key}`) : 'ClinikDia'}</span>
       </div>
       <div className="flex items-center gap-2 md:gap-3">
         <LiveClock />
