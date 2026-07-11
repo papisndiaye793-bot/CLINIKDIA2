@@ -1,7 +1,11 @@
 import QRCode from 'qrcode';
-import { roleLabel } from '@/lib/labels';
-import { initials, slugify } from '@/lib/utils';
+import { roleLabelFor } from '@/lib/labels';
+import { getActiveLang, initials, slugify } from '@/lib/utils';
 import type { ClinicSettings, Staff, Visiteur } from '@/types';
+
+/** Sélecteur FR/EN selon la langue active (badges hors composant React). */
+const L = (fr: string, en: string) => (getActiveLang() === 'en' ? en : fr);
+const roleLabel = (r: Staff['role']) => roleLabelFor(getActiveLang() === 'en' ? 'en' : 'fr')[r];
 
 // ─── Badge de pointage (carte CR80 : 85,6 × 54 mm) ──────────────────────────
 
@@ -60,7 +64,7 @@ export async function downloadBadgePDF(staff: Staff, settings: ClinicSettings) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5);
   doc.setTextColor(204, 251, 241);
-  doc.text('BADGE PERSONNEL — POINTAGE', 4, 9);
+  doc.text(L('BADGE PERSONNEL — POINTAGE','STAFF BADGE — TIME CLOCK'), 4, 9);
 
   // Photo (ou pavé initiales)
   const phX = 4;
@@ -101,7 +105,7 @@ export async function downloadBadgePDF(staff: Staff, settings: ClinicSettings) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(100, 116, 139);
-  doc.text(roleLabel[staff.role].label, txX, 31, { maxWidth: 34 });
+  doc.text(roleLabel(staff.role).label, txX, 31, { maxWidth: 34 });
   doc.setFont('courier', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(15, 118, 110);
@@ -113,7 +117,7 @@ export async function downloadBadgePDF(staff: Staff, settings: ClinicSettings) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(4.5);
   doc.setTextColor(148, 163, 184);
-  doc.text('Scanner à la borne de pointage', W - 4 - qrS / 2, 14 + qrS + 3, { align: 'center' });
+  doc.text(L('Scanner à la borne de pointage','Scan at the time-clock station'), W - 4 - qrS / 2, 14 + qrS + 3, { align: 'center' });
 
   // Bande inférieure
   doc.setFillColor(brand[0], brand[1], brand[2]);
@@ -140,7 +144,7 @@ export async function downloadVisiteurBadgePDF(v: Visiteur, settings: ClinicSett
   // Accompagnant = ambre, Visiteur = indigo — nettement différent des employés (teal).
   const accent: [number, number, number] = v.categorie === 'accompagnant' ? [217, 119, 6] : [79, 70, 229];
   const accentDark: [number, number, number] = v.categorie === 'accompagnant' ? [180, 83, 9] : [67, 56, 202];
-  const label = v.categorie === 'accompagnant' ? 'ACCOMPAGNANT' : 'VISITEUR';
+  const label = v.categorie === 'accompagnant' ? L('ACCOMPAGNANT','COMPANION') : L('VISITEUR','VISITOR');
   const nomComplet = `${v.prenom ? v.prenom + ' ' : ''}${v.nom}`;
 
   doc.setFillColor(255, 255, 255);
@@ -190,9 +194,9 @@ export async function downloadVisiteurBadgePDF(v: Visiteur, settings: ClinicSett
   doc.setFontSize(6);
   doc.setTextColor(100, 116, 139);
   if (v.categorie === 'accompagnant' && v.patientAccompagne) {
-    doc.text(`Accompagne : ${v.patientAccompagne}`, txX, 32, { maxWidth: 34 });
+    doc.text(`${L('Accompagne','Accompanies')} : ${v.patientAccompagne}`, txX, 32, { maxWidth: 34 });
   }
-  if (v.motif) doc.text(`Motif : ${v.motif}`, txX, v.patientAccompagne && v.categorie === 'accompagnant' ? 36 : 32, { maxWidth: 34 });
+  if (v.motif) doc.text(`${L('Motif','Reason')} : ${v.motif}`, txX, v.patientAccompagne && v.categorie === 'accompagnant' ? 36 : 32, { maxWidth: 34 });
 
   // QR
   const qrS = 24;
@@ -200,7 +204,7 @@ export async function downloadVisiteurBadgePDF(v: Visiteur, settings: ClinicSett
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(4.5);
   doc.setTextColor(148, 163, 184);
-  doc.text('À restituer à la sortie', W - 4 - qrS / 2, 16 + qrS + 3, { align: 'center' });
+  doc.text(L('À restituer à la sortie','Return upon exit'), W - 4 - qrS / 2, 16 + qrS + 3, { align: 'center' });
 
   // Bande inférieure
   doc.setFillColor(accent[0], accent[1], accent[2]);
@@ -208,7 +212,7 @@ export async function downloadVisiteurBadgePDF(v: Visiteur, settings: ClinicSett
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(4.5);
   doc.setTextColor(255, 255, 255);
-  doc.text(`Carte du ${new Date(v.createdAt).toLocaleDateString('fr-FR')} · ${settings.nom}`, W / 2, H - 1.3, { align: 'center' });
+  doc.text(`${L('Carte du','Card issued')} ${new Date(v.createdAt).toLocaleDateString(getActiveLang()==='en'?'en-US':'fr-FR')} · ${settings.nom}`, W / 2, H - 1.3, { align: 'center' });
 
   doc.save(`carte-${v.categorie}-${slugify(nomComplet)}-${slugify(v.code)}.pdf`);
 }

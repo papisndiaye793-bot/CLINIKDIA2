@@ -138,7 +138,7 @@ export default function Stock() {
         action={
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={exportPDF} disabled={filtered.length === 0}>
-              <FileText size={16} /> Télécharger en PDF
+              <FileText size={16} /> {t('common.downloadPdf')}
             </Button>
             {editable && <Button onClick={openCreate}><Plus size={16} /> {t('st.new')}</Button>}
           </div>

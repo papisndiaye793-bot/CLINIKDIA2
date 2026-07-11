@@ -88,7 +88,7 @@ export default function Planning() {
       <PageHeader
         title={t('nav.planning')}
         subtitle={t('pl.subtitle').replace('{n}', String(total)).replace('{c}', String(capacite))}
-        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> {t('common.downloadPdf')}</Button>}
       />
 
       <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 p-4">

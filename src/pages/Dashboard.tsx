@@ -145,7 +145,7 @@ export default function Dashboard() {
       <PageHeader
         title={t('nav.dashboard')}
         subtitle={new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> {t('common.downloadPdf')}</Button>}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

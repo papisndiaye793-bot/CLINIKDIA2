@@ -146,7 +146,7 @@ export default function QHSE() {
       <PageHeader
         title={t('qh.title')}
         subtitle={t('qh.subtitle')}
-        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> {t('common.downloadPdf')}</Button>}
       />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

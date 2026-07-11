@@ -1,4 +1,5 @@
 import { useStore } from '@/store/useStore';
+import { setActiveLang, getActiveLang } from '@/lib/utils';
 import type { Lang } from '@/types';
 
 type Dict = Record<string, string>;
@@ -659,8 +660,14 @@ const en: Dict = {
 
 export const dicts: Record<Lang, Dict> = { fr, en };
 
+/** Traduit une clé dans une langue donnée (hors composant React, ex. PDF). */
+export const translate = (key: string, lang: Lang = getActiveLang() === 'en' ? 'en' : 'fr') =>
+  dicts[lang][key] ?? fr[key] ?? key;
+
 export function useT() {
   const lang = (useStore((s) => s.settings.langue) ?? 'fr') as Lang;
+  // Garde la langue des formats (dates, montants) et des PDF alignée sur l'UI.
+  setActiveLang(lang === 'en' ? 'en' : 'fr');
   const t = (key: string) => dicts[lang][key] ?? fr[key] ?? key;
   return { t, lang };
 }

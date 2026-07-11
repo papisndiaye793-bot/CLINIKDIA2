@@ -144,7 +144,7 @@ export default function Reporting() {
       <PageHeader
         title={t('rp.title')}
         subtitle={t('rp.subtitle')}
-        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>}
+        action={<Button variant="secondary" onClick={exportPDF}><FileText size={16} /> {t('common.downloadPdf')}</Button>}
       />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

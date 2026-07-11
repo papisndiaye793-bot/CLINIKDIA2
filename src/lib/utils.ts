@@ -2,21 +2,31 @@ import { clsx, type ClassValue } from 'clsx';
 
 export const cn = (...inputs: ClassValue[]) => clsx(inputs);
 
+// ─── Langue active ───────────────────────────────────────────────────────────
+// Synchronisée depuis le store par useT() ; permet aux formats (dates, montants)
+// et aux PDF de suivre la langue du système sans passer par un hook React.
+let activeLang: 'fr' | 'en' = 'fr';
+export const setActiveLang = (l: 'fr' | 'en') => { activeLang = l; };
+export const getActiveLang = () => activeLang;
+const dateLocale = () => (activeLang === 'en' ? 'en-US' : 'fr-FR');
+/** Petit sélecteur FR/EN pour les libellés figés des PDF. */
+const L = (fr: string, en: string) => (activeLang === 'en' ? en : fr);
+
 export const fmtMoney = (n: number, devise = 'FCFA') =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(n))} ${devise}`;
+  `${new Intl.NumberFormat(dateLocale()).format(Math.round(n))} ${devise}`;
 
 export const fmtDate = (iso?: string) => {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return d.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 export const fmtDateLong = (iso?: string) => {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 };
 
 export const age = (dateNaissance: string) => {
@@ -142,7 +152,7 @@ export async function downloadListePDF(filename: string, o: PdfListe) {
   doc.text(P(o.periode), pageW - M, M + 10, { align: 'right' });
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
-  doc.text(`Édité le ${fmtDateLong(todayISO())}`, pageW - M, M + 15, { align: 'right' });
+  doc.text(`${L('Édité le','Issued on')} ${fmtDateLong(todayISO())}`, pageW - M, M + 15, { align: 'right' });
 
   doc.setDrawColor(brand[0], brand[1], brand[2]);
   doc.setLineWidth(0.5);
@@ -274,7 +284,7 @@ export async function downloadDashboardPDF(filename: string, o: PdfDashboard) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(15, 118, 110);
-  doc.text('Analyse & interprétation', M, y);
+  doc.text(L('Analyse & interprétation','Analysis & interpretation'), M, y);
   y += 7;
 
   for (const sec of o.analyse) {
@@ -353,7 +363,7 @@ export async function downloadDossierPDF(filename: string, o: PdfDossier) {
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
     doc.text(P(`${s.nom} — ${s.adresse} · ${s.telephone} · ${s.email}`), pageW / 2, pageH - M + 6, { align: 'center', maxWidth: contentW });
-    doc.text('Document confidentiel — secret médical', pageW / 2, pageH - M + 9.5, { align: 'center' });
+    doc.text(L('Document confidentiel — secret médical','Confidential document — medical secrecy'), pageW / 2, pageH - M + 9.5, { align: 'center' });
   };
   const breakIf = (needed: number, y: number): number => {
     if (y + needed > pageH - M - 6) { footer(); doc.addPage(); return M; }
@@ -378,11 +388,11 @@ export async function downloadDossierPDF(filename: string, o: PdfDossier) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
-  doc.text('DOSSIER MÉDICAL', pageW - M, 13, { align: 'right' });
+  doc.text(L('DOSSIER MÉDICAL','MEDICAL RECORD'), pageW - M, 13, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(204, 251, 241);
-  doc.text(`Édité le ${P(fmtDateLong(todayISO()))}`, pageW - M, 18.5, { align: 'right' });
+  doc.text(`${L('Édité le','Issued on')} ${P(fmtDateLong(todayISO()))}`, pageW - M, 18.5, { align: 'right' });
 
   // ── Bandeau patient (badge initiales + identité) ──
   let y = headerH + 8;
@@ -539,7 +549,7 @@ export async function downloadDossierPDF(filename: string, o: PdfDossier) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
         doc.setTextColor(148, 163, 184);
-        doc.text(P(sec.vide ?? 'Aucune donnée.'), M, y);
+        doc.text(P(sec.vide ?? L('Aucune donnée.','No data.')), M, y);
         y += 8;
       } else {
         const columnStyles: Record<number, { halign: 'left' | 'right' | 'center' }> = {};
@@ -743,7 +753,7 @@ export async function downloadDocumentPDF(filename: string, o: PdfDocument) {
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
-    doc.text('(cachet et signature)', pageW - M, y + 5, { align: 'right' });
+    doc.text(L('(cachet et signature)','(stamp and signature)'), pageW - M, y + 5, { align: 'right' });
   } else {
     const colW = contentW / 2;
     o.signatures.slice(0, 2).forEach((label, i) => {
@@ -755,7 +765,7 @@ export async function downloadDocumentPDF(filename: string, o: PdfDocument) {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184);
-      doc.text('(cachet et signature)', cx, y + 5, { align: 'center' });
+      doc.text(L('(cachet et signature)','(stamp and signature)'), cx, y + 5, { align: 'center' });
     });
   }
 

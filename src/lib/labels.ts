@@ -217,6 +217,10 @@ function build(lang: Lang) {
 const FR = build('fr');
 const EN = build('en');
 
+/** Libellés résolus dans une langue donnée (hors composant React). */
+export const labelsFor = (lang: Lang) => (lang === 'en' ? EN : FR);
+export const roleLabelFor = (lang: Lang) => labelsFor(lang).roleLabel;
+
 /** Hook réactif : libellés résolus dans la langue courante. */
 export function useLabels() {
   const lang = (useStore((s) => s.settings.langue) ?? 'fr') as Lang;
