@@ -35,6 +35,7 @@ export default function Dashboard() {
   const { patients, machines, seances, factures, articlesStock, maintenances, settings } = useStore();
   const { t, lang } = useT();
   const locale = lang === 'en' ? 'en-US' : 'fr-FR';
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
 
   const today = todayISO();
   const patientsActifs = patients.filter((p) => p.statut === 'actif').length;
@@ -89,39 +90,39 @@ export default function Dashboard() {
 
     // Analyse & interprétation générées à partir des données
     const activitePoints = [
-      `${last7} séances réalisées sur les 7 derniers jours, soit une moyenne de ${moyJour} séances/jour.`,
+      L(`${last7} séances réalisées sur les 7 derniers jours, soit une moyenne de ${moyJour} séances/jour.`, `${last7} sessions over the last 7 days, i.e. an average of ${moyJour} sessions/day.`),
       varPct === 0
-        ? "L'activité est stable par rapport à la semaine précédente."
-        : `L'activité est ${varPct > 0 ? 'en hausse' : 'en baisse'} de ${Math.abs(varPct)} % par rapport aux 7 jours précédents (${prev7} séances).`,
+        ? L("L'activité est stable par rapport à la semaine précédente.", 'Activity is stable compared to the previous week.')
+        : L(`L'activité est ${varPct > 0 ? 'en hausse' : 'en baisse'} de ${Math.abs(varPct)} % par rapport aux 7 jours précédents (${prev7} séances).`, `Activity is ${varPct > 0 ? 'up' : 'down'} ${Math.abs(varPct)}% versus the previous 7 days (${prev7} sessions).`),
     ];
 
     const occupationPoints = [
-      `Le taux d'occupation du jour est de ${tauxOccupation} % (${seancesToday.length} séances pour ${machines.length * 3} créneaux disponibles).`,
+      L(`Le taux d'occupation du jour est de ${tauxOccupation} % (${seancesToday.length} séances pour ${machines.length * 3} créneaux disponibles).`, `Today's occupancy is ${tauxOccupation}% (${seancesToday.length} sessions for ${machines.length * 3} available slots).`),
       tauxOccupation >= 85
-        ? 'Le parc est proche de la saturation : anticiper une capacité additionnelle ou un décalage de créneaux pour absorber la demande.'
+        ? L('Le parc est proche de la saturation : anticiper une capacité additionnelle ou un décalage de créneaux pour absorber la demande.', 'The fleet is near saturation: plan additional capacity or shift slots to absorb demand.')
         : tauxOccupation < 50
-          ? "L'utilisation reste faible : il existe une marge pour programmer davantage de séances et améliorer le rendement des générateurs."
-          : "L'occupation est équilibrée, avec une réserve de capacité confortable.",
+          ? L("L'utilisation reste faible : il existe une marge pour programmer davantage de séances et améliorer le rendement des générateurs.", 'Utilisation remains low: there is room to schedule more sessions and improve generator throughput.')
+          : L("L'occupation est équilibrée, avec une réserve de capacité confortable.", 'Occupancy is balanced, with a comfortable capacity reserve.'),
     ];
 
     const parcPoints = [
-      `${machinesOp} générateur(s) opérationnel(s) sur ${machines.length}${maintEnCours.length ? `, ${maintEnCours.length} en maintenance` : ''}.`,
+      L(`${machinesOp} générateur(s) opérationnel(s) sur ${machines.length}${maintEnCours.length ? `, ${maintEnCours.length} en maintenance` : ''}.`, `${machinesOp} operational generator(s) of ${machines.length}${maintEnCours.length ? `, ${maintEnCours.length} under maintenance` : ''}.`),
       stockAlertes.length
-        ? `${stockAlertes.length} article(s) de stock sous le seuil d'alerte — réapprovisionnement à planifier pour éviter toute rupture.`
-        : "Aucune alerte de stock : les niveaux de consommables sont au-dessus des seuils.",
+        ? L(`${stockAlertes.length} article(s) de stock sous le seuil d'alerte — réapprovisionnement à planifier pour éviter toute rupture.`, `${stockAlertes.length} stock item(s) below the alert threshold — plan replenishment to avoid stock-outs.`)
+        : L('Aucune alerte de stock : les niveaux de consommables sont au-dessus des seuils.', 'No stock alert: consumable levels are above thresholds.'),
     ];
 
     const financePoints = [
-      `${fmtMoney(caEncaisse, settings.devise)} encaissés pour ${fmtMoney(impayes, settings.devise)} restant à recouvrer (taux de recouvrement global : ${txRecouvGlobal} %).`,
+      L(`${fmtMoney(caEncaisse, settings.devise)} encaissés pour ${fmtMoney(impayes, settings.devise)} restant à recouvrer (taux de recouvrement global : ${txRecouvGlobal} %).`, `${fmtMoney(caEncaisse, settings.devise)} collected with ${fmtMoney(impayes, settings.devise)} still to recover (overall recovery rate: ${txRecouvGlobal}%).`),
       impayes > caEncaisse * 0.3
-        ? "Les impayés représentent une part élevée du chiffre d'affaires : renforcer le suivi des relances patients et assurances."
-        : 'Le niveau des impayés reste maîtrisé.',
+        ? L("Les impayés représentent une part élevée du chiffre d'affaires : renforcer le suivi des relances patients et assurances.", 'Unpaid invoices are a high share of revenue: strengthen patient and insurer follow-up.')
+        : L('Le niveau des impayés reste maîtrisé.', 'The level of unpaid invoices remains under control.'),
     ];
 
     const filePoints = [
-      `${patientsActifs} patients actifs sur ${patients.length} au total.`,
+      L(`${patientsActifs} patients actifs sur ${patients.length} au total.`, `${patientsActifs} active patients of ${patients.length} total.`),
       pecTop
-        ? `La prise en charge dominante est « ${pecTop.name} » (${Math.round((pecTop.value / totalPatients) * 100)} % des patients).`
+        ? L(`La prise en charge dominante est « ${pecTop.name} » (${Math.round((pecTop.value / totalPatients) * 100)} % des patients).`, `The dominant coverage is "${pecTop.name}" (${Math.round((pecTop.value / totalPatients) * 100)}% of patients).`)
         : '',
     ].filter(Boolean);
 
@@ -131,11 +132,11 @@ export default function Dashboard() {
       date: dateLabel,
       kpis,
       analyse: [
-        { titre: 'Activité clinique', points: activitePoints },
-        { titre: "Taux d'occupation", points: occupationPoints },
-        { titre: 'Parc & consommables', points: parcPoints },
-        { titre: 'Situation financière', points: financePoints },
-        { titre: 'File active patients', points: filePoints },
+        { titre: L('Activité clinique','Clinical activity'), points: activitePoints },
+        { titre: L("Taux d'occupation",'Occupancy rate'), points: occupationPoints },
+        { titre: L('Parc & consommables','Fleet & consumables'), points: parcPoints },
+        { titre: L('Situation financière','Financial position'), points: financePoints },
+        { titre: L('File active patients','Active patient file'), points: filePoints },
       ],
     });
   };

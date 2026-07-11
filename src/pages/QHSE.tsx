@@ -62,7 +62,8 @@ export default function QHSE() {
     staff, settings, logAction,
   } = useStore();
   const { canWrite, canDelete } = useAuth();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
   const editable = canWrite('qhse');
   const deletable = canDelete('qhse');
 
@@ -98,45 +99,45 @@ export default function QHSE() {
     ];
 
     const conformitePoints = [
-      `Le taux de conformité global est de ${taux} % (${conformes} éléments conformes sur ${total} contrôlés : extincteurs et contrôles réglementaires).`,
+      L(`Le taux de conformité global est de ${taux} % (${conformes} éléments conformes sur ${total} contrôlés : extincteurs et contrôles réglementaires).`, `The overall compliance rate is ${taux}% (${conformes} compliant items of ${total} checked: extinguishers and regulatory controls).`),
       taux >= 80
-        ? 'Le niveau de conformité est satisfaisant et conforme aux exigences réglementaires ; maintenir le rythme des contrôles périodiques.'
+        ? L('Le niveau de conformité est satisfaisant et conforme aux exigences réglementaires ; maintenir le rythme des contrôles périodiques.', 'Compliance is satisfactory and meets regulatory requirements; keep up the periodic checks.')
         : taux >= 60
-          ? 'Le niveau de conformité est perfectible : planifier rapidement les contrôles des éléments non conformes ou en attente.'
-          : "Le niveau de conformité est insuffisant et expose l'établissement à un risque réglementaire : un plan d'action correctif prioritaire est requis.",
+          ? L('Le niveau de conformité est perfectible : planifier rapidement les contrôles des éléments non conformes ou en attente.', 'Compliance can be improved: quickly schedule checks for non-compliant or pending items.')
+          : L("Le niveau de conformité est insuffisant et expose l'établissement à un risque réglementaire : un plan d'action correctif prioritaire est requis.", 'Compliance is insufficient and exposes the establishment to regulatory risk: a priority corrective action plan is required.'),
     ];
 
     const echeancesPoints = [
       retards === 0
-        ? 'Aucun contrôle en retard : les échéances de vérification sont respectées.'
-        : `${retards} contrôle(s) en retard (${extRetard} extincteur(s), ${ctlRetard} contrôle(s) réglementaire(s)) — à régulariser sans délai.`,
-      `${nonConformes} élément(s) non conforme(s) et ${aControler} à contrôler nécessitent une action de mise en conformité.`,
+        ? L('Aucun contrôle en retard : les échéances de vérification sont respectées.', 'No overdue check: verification deadlines are met.')
+        : L(`${retards} contrôle(s) en retard (${extRetard} extincteur(s), ${ctlRetard} contrôle(s) réglementaire(s)) — à régulariser sans délai.`, `${retards} overdue check(s) (${extRetard} extinguisher(s), ${ctlRetard} regulatory control(s)) — to be resolved without delay.`),
+      L(`${nonConformes} élément(s) non conforme(s) et ${aControler} à contrôler nécessitent une action de mise en conformité.`, `${nonConformes} non-compliant item(s) and ${aControler} to be checked require a compliance action.`),
     ];
 
     const incendiePoints = [
-      `Parc de sécurité incendie : ${extincteurs.length} extincteur(s) recensé(s), dont ${extincteurs.filter((e) => e.statut === 'conforme').length} conforme(s).`,
+      L(`Parc de sécurité incendie : ${extincteurs.length} extincteur(s) recensé(s), dont ${extincteurs.filter((e) => e.statut === 'conforme').length} conforme(s).`, `Fire-safety fleet: ${extincteurs.length} extinguisher(s) recorded, of which ${extincteurs.filter((e) => e.statut === 'conforme').length} compliant.`),
       extRetard
-        ? `${extRetard} extincteur(s) au-delà de leur date de prochain contrôle : vérification à programmer avec le prestataire agréé.`
-        : "Tous les extincteurs sont dans leur période de validité de contrôle.",
+        ? L(`${extRetard} extincteur(s) au-delà de leur date de prochain contrôle : vérification à programmer avec le prestataire agréé.`, `${extRetard} extinguisher(s) past their next-check date: schedule verification with the approved provider.`)
+        : L('Tous les extincteurs sont dans leur période de validité de contrôle.', 'All extinguishers are within their check validity period.'),
     ];
 
     const certPoints = [
-      `${certifications.length} certification(s) suivie(s), dont ${certsValides} en cours de validité.`,
+      L(`${certifications.length} certification(s) suivie(s), dont ${certsValides} en cours de validité.`, `${certifications.length} certification(s) tracked, of which ${certsValides} currently valid.`),
       certsExpirees
-        ? `${certsExpirees} certification(s) expirée(s) : engager le renouvellement auprès des organismes concernés.`
-        : 'Aucune certification expirée à ce jour.',
+        ? L(`${certsExpirees} certification(s) expirée(s) : engager le renouvellement auprès des organismes concernés.`, `${certsExpirees} expired certification(s): start renewal with the relevant bodies.`)
+        : L('Aucune certification expirée à ce jour.', 'No expired certification to date.'),
     ];
 
     downloadDashboardPDF(`qhse-tableau-de-bord-${slugify(todayISO())}`, {
       settings,
       titre: t('qh.title'),
-      date: new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      date: new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
       kpis,
       analyse: [
-        { titre: 'Conformité globale', points: conformitePoints },
-        { titre: 'Échéances & non-conformités', points: echeancesPoints },
-        { titre: 'Sécurité incendie', points: incendiePoints },
-        { titre: 'Certifications', points: certPoints },
+        { titre: L('Conformité globale','Overall compliance'), points: conformitePoints },
+        { titre: L('Échéances & non-conformités','Deadlines & non-compliances'), points: echeancesPoints },
+        { titre: L('Sécurité incendie','Fire safety'), points: incendiePoints },
+        { titre: L('Certifications','Certifications'), points: certPoints },
       ],
     });
   };

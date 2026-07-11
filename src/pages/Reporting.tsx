@@ -24,7 +24,8 @@ const COLORS = ['#1a5fe0', '#0d9488', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'
 
 export default function Reporting() {
   const { patients, seances, machines, settings } = useStore();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const LT = (fr: string, en: string) => (lang === 'en' ? en : fr);
   const L = useLabels();
 
   const actifs = patients.filter((p) => p.statut === 'actif');
@@ -96,45 +97,45 @@ export default function Reporting() {
     ];
 
     const filePoints = [
-      `La file active compte ${actifs.length} patient(s) dialysé(s) : ${hommes} homme(s) et ${femmes} femme(s), d'âge moyen ${ageMoyen} ans.`,
+      LT(`La file active compte ${actifs.length} patient(s) dialysé(s) : ${hommes} homme(s) et ${femmes} femme(s), d'âge moyen ${ageMoyen} ans.`, `The active file has ${actifs.length} dialysis patient(s): ${hommes} male, ${femmes} female, mean age ${ageMoyen} years.`),
       topNephro
-        ? `La néphropathie causale la plus fréquente est « ${topNephro.name} » (${topNephro.value} patient(s), soit ${Math.round((topNephro.value / (actifs.length || 1)) * 100)} %).`
-        : 'Les néphropathies causales ne sont pas encore renseignées.',
+        ? LT(`La néphropathie causale la plus fréquente est « ${topNephro.name} » (${topNephro.value} patient(s), soit ${Math.round((topNephro.value / (actifs.length || 1)) * 100)} %).`, `The most frequent causal nephropathy is "${topNephro.name}" (${topNephro.value} patient(s), i.e. ${Math.round((topNephro.value / (actifs.length || 1)) * 100)}%).`)
+        : LT('Les néphropathies causales ne sont pas encore renseignées.', 'Causal nephropathies are not documented yet.'),
     ];
 
     const adequationPoints = [
       ktvMoyen === '—'
-        ? "Aucune séance terminée avec Kt/V renseigné : l'adéquation de dialyse ne peut être évaluée sur la période."
-        : `Le Kt/V moyen est de ${ktvMoyen}, et ${ktvCible} % des séances atteignent la cible d'adéquation (Kt/V ≥ 1,2) sur ${terminées.length} séance(s) évaluée(s).`,
+        ? LT("Aucune séance terminée avec Kt/V renseigné : l'adéquation de dialyse ne peut être évaluée sur la période.", 'No completed session with a recorded Kt/V: dialysis adequacy cannot be assessed for the period.')
+        : LT(`Le Kt/V moyen est de ${ktvMoyen}, et ${ktvCible} % des séances atteignent la cible d'adéquation (Kt/V ≥ 1,2) sur ${terminées.length} séance(s) évaluée(s).`, `Mean Kt/V is ${ktvMoyen}, and ${ktvCible}% of sessions reach the adequacy target (Kt/V ≥ 1.2) over ${terminées.length} assessed session(s).`),
       ktvCible >= 80
-        ? "L'adéquation de dialyse est satisfaisante et conforme aux recommandations."
+        ? LT("L'adéquation de dialyse est satisfaisante et conforme aux recommandations.", 'Dialysis adequacy is satisfactory and in line with guidelines.')
         : ktvCible >= 60
-          ? "L'adéquation est perfectible : revoir la durée, le débit et la prescription des séances sous la cible."
-          : "L'adéquation est insuffisante : un audit des prescriptions et des abords vasculaires est recommandé.",
+          ? LT("L'adéquation est perfectible : revoir la durée, le débit et la prescription des séances sous la cible.", 'Adequacy can be improved: review the duration, flow and prescription of sub-target sessions.')
+          : LT("L'adéquation est insuffisante : un audit des prescriptions et des abords vasculaires est recommandé.", 'Adequacy is insufficient: an audit of prescriptions and vascular accesses is recommended.'),
     ];
 
     const abordPoints = [
-      topAbord ? `L'abord vasculaire dominant est « ${topAbord.name} » (${Math.round((topAbord.value / (actifs.length || 1)) * 100)} % des patients).` : '',
+      topAbord ? LT(`L'abord vasculaire dominant est « ${topAbord.name} » (${Math.round((topAbord.value / (actifs.length || 1)) * 100)} % des patients).`, `The dominant vascular access is "${topAbord.name}" (${Math.round((topAbord.value / (actifs.length || 1)) * 100)}% of patients).`) : '',
       favRate >= 60
-        ? `Le taux de fistule artério-veineuse (FAV) est de ${favRate} %, conforme à l'objectif de privilégier l'abord natif (moindre risque infectieux).`
-        : `Le taux de FAV n'est que de ${favRate} % : encourager la création d'abords natifs pour réduire le recours aux cathéters et le risque infectieux.`,
+        ? LT(`Le taux de fistule artério-veineuse (FAV) est de ${favRate} %, conforme à l'objectif de privilégier l'abord natif (moindre risque infectieux).`, `The arteriovenous fistula (AVF) rate is ${favRate}%, in line with the goal of favouring native access (lower infection risk).`)
+        : LT(`Le taux de FAV n'est que de ${favRate} % : encourager la création d'abords natifs pour réduire le recours aux cathéters et le risque infectieux.`, `The AVF rate is only ${favRate}%: encourage native access creation to reduce catheter use and infection risk.`),
     ].filter(Boolean);
 
     const activitePoints = [
-      `Volume d'activité : ${volFin} séance(s) sur la dernière semaine, contre ${volDebut} il y a quatre semaines (${volVar === 0 ? 'activité stable' : volVar > 0 ? `+${volVar} %` : `${volVar} %`}).`,
-      `${machines.length} générateur(s) au parc pour assurer cette activité.`,
+      LT(`Volume d'activité : ${volFin} séance(s) sur la dernière semaine, contre ${volDebut} il y a quatre semaines (${volVar === 0 ? 'activité stable' : volVar > 0 ? `+${volVar} %` : `${volVar} %`}).`, `Activity volume: ${volFin} session(s) last week versus ${volDebut} four weeks ago (${volVar === 0 ? 'stable' : volVar > 0 ? `+${volVar}%` : `${volVar}%`}).`),
+      LT(`${machines.length} générateur(s) au parc pour assurer cette activité.`, `${machines.length} generator(s) in the fleet to support this activity.`),
     ];
 
     downloadDashboardPDF(`reporting-medical-${slugify(todayISO())}`, {
       settings,
       titre: t('rp.title'),
-      date: new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      date: new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
       kpis,
       analyse: [
-        { titre: 'File active & épidémiologie', points: filePoints },
-        { titre: 'Adéquation de dialyse (Kt/V)', points: adequationPoints },
-        { titre: 'Abords vasculaires', points: abordPoints },
-        { titre: "Volume d'activité", points: activitePoints },
+        { titre: LT('File active & épidémiologie','Active file & epidemiology'), points: filePoints },
+        { titre: LT('Adéquation de dialyse (Kt/V)','Dialysis adequacy (Kt/V)'), points: adequationPoints },
+        { titre: LT('Abords vasculaires','Vascular accesses'), points: abordPoints },
+        { titre: LT("Volume d'activité",'Activity volume'), points: activitePoints },
       ],
     });
   };

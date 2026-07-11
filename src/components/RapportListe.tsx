@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Droplets, FileText } from 'lucide-react';
 import { Button, Select } from '@/components/ui';
 import { downloadListePDF, fmtDateLong, slugify } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 import type { ClinicSettings } from '@/types';
+
+const MOIS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const MOIS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export type ColonneRapport<T> = {
   header: string;
@@ -31,9 +35,10 @@ type Props<T> = {
   syntheseRows?: (rows: T[]) => { label: string; value: string }[];
 };
 
-const MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-
 export function RapportListe<T>({ open, onClose, titre, settings, rows, dateOf, colonnes, synthese, syntheseRows }: Props<T>) {
+  const { lang } = useT();
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
+  const MOIS = lang === 'en' ? MOIS_EN : MOIS_FR;
   const now = new Date();
   const [mode, setMode] = useState<'mensuel' | 'annuel'>('annuel');
   const [annee, setAnnee] = useState(now.getFullYear());
@@ -94,7 +99,7 @@ export function RapportListe<T>({ open, onClose, titre, settings, rows, dateOf, 
     });
   }, [rows, dateOf, mode, annee, mois]);
 
-  const periodeLabel = mode === 'mensuel' ? `${MOIS[mois]} ${annee}` : `Année ${annee}`;
+  const periodeLabel = mode === 'mensuel' ? `${MOIS[mois]} ${annee}` : `${L('Année','Year')} ${annee}`;
 
   const cellText = (c: ColonneRapport<T>, r: T): string | number => {
     if (c.text) return c.text(r);
@@ -123,8 +128,8 @@ export function RapportListe<T>({ open, onClose, titre, settings, rows, dateOf, 
       <div className="no-print sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
         <span className="mr-auto text-sm font-semibold text-slate-700">{titre}</span>
         <Select value={mode} onChange={(e) => setMode(e.target.value as 'mensuel' | 'annuel')} className="!w-36 shrink-0">
-          <option value="annuel">Annuel</option>
-          <option value="mensuel">Mensuel</option>
+          <option value="annuel">{L('Annuel','Yearly')}</option>
+          <option value="mensuel">{L('Mensuel','Monthly')}</option>
         </Select>
         {mode === 'mensuel' && (
           <Select value={mois} onChange={(e) => setMois(Number(e.target.value))} className="!w-36 shrink-0">
@@ -134,7 +139,7 @@ export function RapportListe<T>({ open, onClose, titre, settings, rows, dateOf, 
         <Select value={annee} onChange={(e) => setAnnee(Number(e.target.value))} className="!w-28 shrink-0">
           {annees.map((y) => <option key={y} value={y}>{y}</option>)}
         </Select>
-        <Button onClick={exportPDF}><FileText size={16} /> Télécharger en PDF</Button>
+        <Button onClick={exportPDF}><FileText size={16} /> {L('Télécharger en PDF','Download as PDF')}</Button>
         <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50">
           <X size={18} />
         </button>
@@ -162,13 +167,13 @@ export function RapportListe<T>({ open, onClose, titre, settings, rows, dateOf, 
           <div className="text-right">
             <div className="text-lg font-bold text-brand-700">{titre}</div>
             <div className="mt-1 text-sm font-semibold text-slate-700">{periodeLabel}</div>
-            <div className="mt-0.5 text-xs text-slate-500">Édité le {fmtDateLong(now.toISOString().slice(0, 10))}</div>
+            <div className="mt-0.5 text-xs text-slate-500">{L('Édité le','Issued on')} {fmtDateLong(now.toISOString().slice(0, 10))}</div>
           </div>
         </div>
 
         {/* Tableau */}
         {filtered.length === 0 ? (
-          <div className="py-16 text-center text-sm text-slate-400">Aucune donnée pour cette période.</div>
+          <div className="py-16 text-center text-sm text-slate-400">{L('Aucune donnée pour cette période.','No data for this period.')}</div>
         ) : (
           <div className="mt-6 overflow-x-auto">
           <table className="w-full border-collapse text-sm">
@@ -205,7 +210,7 @@ export function RapportListe<T>({ open, onClose, titre, settings, rows, dateOf, 
           </div>
         )}
 
-        <div className="mt-4 text-xs text-slate-400">{filtered.length} ligne(s) — {periodeLabel}</div>
+        <div className="mt-4 text-xs text-slate-400">{filtered.length} {L('ligne(s)','row(s)')} — {periodeLabel}</div>
 
         {/* Bande de pied de page — épinglée en bas de la page à l'impression */}
         <div className="print-footer -mx-10 mt-8 border-t border-slate-200 px-10 pt-3 text-center text-[10px] font-medium text-slate-500">

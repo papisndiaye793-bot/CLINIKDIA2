@@ -3,11 +3,14 @@ import { FileText, Printer, X, RotateCcw, Droplets } from 'lucide-react';
 import { Button, Field, Input, Select, Textarea } from '@/components/ui';
 import { useStore } from '@/store/useStore';
 import { downloadDocumentPDF, fmtDateLong, slugify, todayISO } from '@/lib/utils';
-import { DOC_MODELES, defaultFieldValues, signaturesFor, type DocCtx } from '@/lib/hrDocuments';
+import { DOC_MODELES, defaultFieldValues, signaturesFor, tl, type DocCtx } from '@/lib/hrDocuments';
+import { useT } from '@/lib/i18n';
 import type { Staff } from '@/types';
 
 export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boolean; onClose: () => void; initialStaffId?: string }) {
   const { staff, settings, addDocumentRH } = useStore();
+  const { lang } = useT();
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
   const today = todayISO();
 
   const [staffId, setStaffId] = useState(initialStaffId ?? staff[0]?.id ?? '');
@@ -20,14 +23,14 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
   const s = useMemo<Staff | undefined>(() => staff.find((x) => x.id === staffId), [staff, staffId]);
   const modele = useMemo(() => DOC_MODELES.find((m) => m.id === modeleId) ?? DOC_MODELES[0], [modeleId]);
 
-  const ctx = useMemo<DocCtx | null>(() => (s ? { s, c: settings, v: values, today } : null), [s, settings, values, today]);
+  const ctx = useMemo<DocCtx | null>(() => (s ? { s, c: settings, v: values, today, lang } : null), [s, settings, values, today, lang]);
 
   // (Re)génère les valeurs par défaut quand l'employé ou le modèle change.
   useEffect(() => {
     if (!s) return;
-    setValues(defaultFieldValues(modele, { s, c: settings, today }));
+    setValues(defaultFieldValues(modele, { s, c: settings, today, lang }));
     setDirty(false);
-  }, [s, modele, settings, today]);
+  }, [s, modele, settings, today, lang]);
 
   // (Re)génère le corps depuis le modèle tant que l'utilisateur ne l'a pas édité.
   useEffect(() => {
@@ -40,12 +43,14 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
   const setV = (k: string, val: string) => setValues((p) => ({ ...p, [k]: val }));
   const regenerate = () => { if (ctx) { setCorps(modele.build(ctx)); setDirty(false); } };
 
-  const signatures = signaturesFor(modele.id);
+  const modeleTitre = tl(modele.titre, lang);
+  const modeleDesc = tl(modele.description, lang);
+  const signatures = signaturesFor(modele.id, lang);
 
-  const fileBase = s ? `${slugify(modele.titre)}-${slugify(`${s.prenom}-${s.nom}`)}` : slugify(modele.titre);
+  const fileBase = s ? `${slugify(modeleTitre)}-${slugify(`${s.prenom}-${s.nom}`)}` : slugify(modeleTitre);
 
   const generatePDF = () => {
-    downloadDocumentPDF(fileBase, { settings, titre: modele.titre, corps, signatures, reference: modele.description });
+    downloadDocumentPDF(fileBase, { settings, titre: modeleTitre, corps, signatures, reference: modeleDesc });
   };
 
   // Établit le document (l'enregistre dans le registre) puis le télécharge.
@@ -53,7 +58,7 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
     if (!s) return;
     addDocumentRH({
       modeleId: modele.id,
-      titre: modele.titre,
+      titre: modeleTitre,
       staffId: s.id,
       staffNom: `${s.prenom} ${s.nom}`,
       staffCode: s.code,
@@ -70,12 +75,12 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
       {/* Barre d'actions */}
       <div className="no-print flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
         <span className="mr-auto inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <FileText size={16} /> Établissement de documents
+          <FileText size={16} /> {L('Établissement de documents','Document generation')}
         </span>
-        <Button variant="secondary" onClick={regenerate} title="Régénérer depuis le modèle"><RotateCcw size={15} /> Régénérer</Button>
-        <Button variant="secondary" onClick={() => window.print()}><Printer size={16} /> Imprimer</Button>
-        <Button variant="secondary" onClick={generatePDF} disabled={!s} title="Télécharger sans enregistrer"><FileText size={16} /> PDF</Button>
-        <Button onClick={etablirEtTelecharger} disabled={!s}><FileText size={16} /> Établir &amp; télécharger</Button>
+        <Button variant="secondary" onClick={regenerate} title={L('Régénérer depuis le modèle','Regenerate from template')}><RotateCcw size={15} /> {L('Régénérer','Regenerate')}</Button>
+        <Button variant="secondary" onClick={() => window.print()}><Printer size={16} /> {L('Imprimer','Print')}</Button>
+        <Button variant="secondary" onClick={generatePDF} disabled={!s} title={L('Télécharger sans enregistrer','Download without saving')}><FileText size={16} /> PDF</Button>
+        <Button onClick={etablirEtTelecharger} disabled={!s}><FileText size={16} /> {L('Établir & télécharger','Issue & download')}</Button>
         <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50">
           <X size={18} />
         </button>
@@ -84,22 +89,22 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row">
         {/* Panneau de configuration */}
         <div className="no-print w-full shrink-0 space-y-4 overflow-y-auto border-r border-slate-200 bg-white p-5 lg:w-96">
-          <Field label="Employé">
+          <Field label={L('Employé','Employee')}>
             <Select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
               {staff.map((x) => <option key={x.id} value={x.id}>{x.role === 'nephrologue' ? 'Dr ' : ''}{x.prenom} {x.nom} — {x.code}</option>)}
             </Select>
           </Field>
-          <Field label="Type de document">
+          <Field label={L('Type de document','Document type')}>
             <Select value={modeleId} onChange={(e) => setModeleId(e.target.value)}>
-              {DOC_MODELES.map((m) => <option key={m.id} value={m.id}>{m.titre}</option>)}
+              {DOC_MODELES.map((m) => <option key={m.id} value={m.id}>{tl(m.titre, lang)}</option>)}
             </Select>
           </Field>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Champs du document</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{L('Champs du document','Document fields')}</div>
             <div className="space-y-3">
               {modele.fields.map((f) => (
-                <Field key={f.key} label={f.label}>
+                <Field key={f.key} label={tl(f.label, lang)}>
                   {f.type === 'textarea' ? (
                     <Textarea rows={2} value={values[f.key] ?? ''} onChange={(e) => setV(f.key, e.target.value)} />
                   ) : (
@@ -108,10 +113,10 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
                 </Field>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-slate-400">Modifier un champ met à jour l'aperçu (tant que le corps n'a pas été édité à la main).</p>
+            <p className="mt-2 text-[11px] text-slate-400">{L("Modifier un champ met à jour l'aperçu (tant que le corps n'a pas été édité à la main).",'Editing a field updates the preview (until the body is edited manually).')}</p>
           </div>
 
-          <Field label="Corps du document (modifiable)" hint="Le texte entre **…** apparaît en gras (valeurs à remplir).">
+          <Field label={L('Corps du document (modifiable)','Document body (editable)')} hint={L('Le texte entre **…** apparaît en gras (valeurs à remplir).','Text between **…** appears bold (values to fill in).')}>
             <Textarea rows={12} value={corps} onChange={(e) => { setCorps(e.target.value); setDirty(true); }} className="font-mono text-xs leading-relaxed" />
           </Field>
         </div>
@@ -139,8 +144,8 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
 
             {/* Titre */}
             <div className="mt-8 text-center">
-              <h2 className="inline-block border-b-2 border-brand-500 pb-1 text-xl font-bold uppercase tracking-wide text-brand-800">{modele.titre}</h2>
-              <div className="mt-1.5 text-xs italic text-slate-400">{modele.description}</div>
+              <h2 className="inline-block border-b-2 border-brand-500 pb-1 text-xl font-bold uppercase tracking-wide text-brand-800">{modeleTitre}</h2>
+              <div className="mt-1.5 text-xs italic text-slate-400">{modeleDesc}</div>
             </div>
 
             {/* Corps — les segments **…** (valeurs à remplir) sont mis en gras */}
@@ -153,7 +158,7 @@ export function DocumentBuilder({ open, onClose, initialStaffId }: { open: boole
               {signatures.map((label, i) => (
                 <div key={i} className={signatures.length === 2 ? 'text-center' : 'text-center'}>
                   <div className="text-sm font-semibold text-slate-700">{label}</div>
-                  <div className="mt-1 text-xs italic text-slate-400">(cachet et signature)</div>
+                  <div className="mt-1 text-xs italic text-slate-400">{L('(cachet et signature)','(stamp and signature)')}</div>
                   <div className="mt-10 border-t border-dashed border-slate-300" />
                 </div>
               ))}

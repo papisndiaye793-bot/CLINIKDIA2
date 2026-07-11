@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useT } from '@/lib/i18n';
 import {
   PageHeader, Card, CardHeader, Button, Badge, Input, Select, Table, Th, Td,
   StatCard, EmptyState, ConfirmDialog, Field, Modal,
@@ -28,7 +29,8 @@ const depuis = (iso: string, refMs: number) => {
   return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
 };
 
-const MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const MOIS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const MOIS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /** Personne résolue (employé, accompagnant ou visiteur) pour l'affichage. */
 type Personne = {
@@ -43,11 +45,13 @@ type Personne = {
   photoUrl?: string;
 };
 
-const CAT_META: Record<CategoriePresence, { label: string; tone: 'green' | 'amber' | 'purple'; icon: typeof Users2 }> = {
-  employe: { label: 'Employés', tone: 'green', icon: Users2 },
-  accompagnant: { label: 'Accompagnateurs', tone: 'amber', icon: HeartHandshake },
-  visiteur: { label: 'Visiteurs', tone: 'purple', icon: DoorOpen },
+const CAT_META: Record<CategoriePresence, { fr: string; en: string; tone: 'green' | 'amber' | 'purple'; icon: typeof Users2 }> = {
+  employe: { fr: 'Employés', en: 'Employees', tone: 'green', icon: Users2 },
+  accompagnant: { fr: 'Accompagnateurs', en: 'Companions', tone: 'amber', icon: HeartHandshake },
+  visiteur: { fr: 'Visiteurs', en: 'Visitors', tone: 'purple', icon: DoorOpen },
 };
+const catLabel = (c: CategoriePresence, en: boolean) => (en ? CAT_META[c].en : CAT_META[c].fr);
+const catLabelSing = (c: CategoriePresence, en: boolean) => (c === 'employe' ? (en ? 'Employee' : 'Employé') : c === 'accompagnant' ? (en ? 'Companion' : 'Accompagnant') : (en ? 'Visitor' : 'Visiteur'));
 
 /** Regroupe les pointages d'une personne par jour et apparie entrées/sorties. */
 function joursTravailles(evts: Pointage[]) {
@@ -78,6 +82,8 @@ export default function PointagePage() {
   const store = useStore();
   const { staff, visiteurs, pointages, settings, addPointage, deletePointage, updateStaff, logAction } = store;
   const { canWrite } = useAuth();
+  const { lang } = useT();
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
   const editable = canWrite('grh');
 
   const [borneOpen, setBorneOpen] = useState(false);
@@ -145,6 +151,7 @@ export default function PointagePage() {
   // ── Relevé mensuel (employés) ──
   const prefix = `${annee}-${String(mois + 1).padStart(2, '0')}`;
   const duMois = pointages.filter((p) => p.horodatage.startsWith(prefix) && p.categorie === 'employe');
+  const MOIS = lang === 'en' ? MOIS_EN : MOIS_FR;
   const periodeLabel = `${MOIS[mois]} ${annee}`;
   const releves = useMemo(() =>
     staff.filter((s) => s.actif).map((s) => {
@@ -157,21 +164,21 @@ export default function PointagePage() {
     const totalMs = jours.reduce((a, j) => a + j.dureeMs, 0);
     downloadListePDF(`pointage-${slugify(`${s.prenom}-${s.nom}`)}-${slugify(periodeLabel)}`, {
       settings, orientation: 'portrait',
-      titre: `Relevé de pointage — ${s.prenom} ${s.nom} (${s.code})`,
+      titre: `${L('Relevé de pointage','Time-clock report')} — ${s.prenom} ${s.nom} (${s.code})`,
       periode: periodeLabel,
-      headers: ['Date', 'Entrée(s)', 'Sortie(s)', 'Temps de présence', 'Observation'],
+      headers: [L('Date','Date'), L('Entrée(s)','In'), L('Sortie(s)','Out'), L('Temps de présence','Presence time'), L('Observation','Note')],
       aligns: ['left', 'left', 'left', 'right', 'left'],
       rows: jours.map((j) => [
         fmtDate(j.day),
         j.entrees.map((e) => `${fmtHeure(e.horodatage)}${e.methode === 'manuel' ? ' (m)' : ''}`).join(' · ') || '—',
         j.sorties.map((e) => `${fmtHeure(e.horodatage)}${e.methode === 'manuel' ? ' (m)' : ''}`).join(' · ') || '—',
         j.dureeMs ? fmtDuree(j.dureeMs) : '—',
-        j.incomplet ? 'Sortie manquante' : j.anomalies ? 'Pointage irrégulier' : '',
+        j.incomplet ? L('Sortie manquante','Missing exit') : j.anomalies ? L('Pointage irrégulier','Irregular punch') : '',
       ]),
       synthese: [
-        { label: 'Jours travaillés', value: String(jours.length) },
-        { label: 'Temps de présence total', value: fmtDuree(totalMs) },
-        { label: 'Pointages', value: String(duMois.filter((p) => p.staffId === s.id).length) },
+        { label: L('Jours travaillés','Days worked'), value: String(jours.length) },
+        { label: L('Temps de présence total','Total presence time'), value: fmtDuree(totalMs) },
+        { label: L('Pointages','Punches'), value: String(duMois.filter((p) => p.staffId === s.id).length) },
       ],
     });
   };
@@ -179,9 +186,9 @@ export default function PointagePage() {
   const exportReleveGlobal = () => {
     downloadListePDF(`pointage-global-${slugify(periodeLabel)}`, {
       settings, orientation: 'portrait',
-      titre: 'Relevé de pointage — synthèse du personnel',
+      titre: L('Relevé de pointage — synthèse du personnel','Time-clock report — staff summary'),
       periode: periodeLabel,
-      headers: ['Employé', 'Fonction', 'Jours travaillés', 'Temps de présence', 'Pointages'],
+      headers: [L('Employé','Employee'), L('Fonction','Role'), L('Jours travaillés','Days worked'), L('Temps de présence','Presence time'), L('Pointages','Punches')],
       aligns: ['left', 'left', 'right', 'right', 'right'],
       rows: releves.map(({ s, jours, totalMs }) => [
         `${s.role === 'nephrologue' ? 'Dr ' : ''}${s.prenom} ${s.nom} (${s.code})`,
@@ -195,25 +202,25 @@ export default function PointagePage() {
   return (
     <div>
       <PageHeader
-        title="Borne de pointage"
-        subtitle={`${totalPresents} présent(s) en temps réel · ${duJour.length} pointage(s) aujourd'hui`}
-        action={<Button onClick={() => setBorneOpen(true)}><Maximize2 size={16} /> Ouvrir la borne</Button>}
+        title={L('Borne de pointage','Time clock')}
+        subtitle={`${totalPresents} ${L('présent(s) en temps réel','on-site now')} · ${duJour.length} ${L("pointage(s) aujourd'hui",'punch(es) today')}`}
+        action={<Button onClick={() => setBorneOpen(true)}><Maximize2 size={16} /> {L('Ouvrir la borne','Open station')}</Button>}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Employés présents" value={presents.employe.length} icon={<Users2 size={18} />} tone="green" hint={`sur ${staff.filter((s) => s.actif).length} actifs`} />
-        <StatCard label="Accompagnateurs" value={presents.accompagnant.length} icon={<HeartHandshake size={18} />} tone="amber" hint="dans les murs" />
-        <StatCard label="Visiteurs" value={presents.visiteur.length} icon={<DoorOpen size={18} />} tone="purple" hint="dans les murs" />
-        <StatCard label="Total présents" value={totalPresents} icon={<Radio size={18} />} tone="blue" hint="temps réel" />
+        <StatCard label={L('Employés présents','Employees on site')} value={presents.employe.length} icon={<Users2 size={18} />} tone="green" hint={`${L('sur','of')} ${staff.filter((s) => s.actif).length} ${L('actifs','active')}`} />
+        <StatCard label={L('Accompagnateurs','Companions')} value={presents.accompagnant.length} icon={<HeartHandshake size={18} />} tone="amber" hint={L('dans les murs','on premises')} />
+        <StatCard label={L('Visiteurs','Visitors')} value={presents.visiteur.length} icon={<DoorOpen size={18} />} tone="purple" hint={L('dans les murs','on premises')} />
+        <StatCard label={L('Total présents','Total on site')} value={totalPresents} icon={<Radio size={18} />} tone="blue" hint={L('temps réel','real time')} />
       </div>
 
       <div className="mb-5 flex flex-wrap gap-1 border-b border-slate-200">
         {([
-          { id: 'presents', label: 'Présents (temps réel)', icon: Radio },
-          { id: 'journal', label: 'Journal du jour', icon: ScanLine },
-          { id: 'releves', label: 'Relevés mensuels', icon: FileText },
-          { id: 'visiteurs', label: 'Visiteurs & accompagnants', icon: Contact },
-          { id: 'badges', label: 'Badges employés', icon: Contact },
+          { id: 'presents', label: L('Présents (temps réel)','On site (live)'), icon: Radio },
+          { id: 'journal', label: L('Journal du jour','Daily log'), icon: ScanLine },
+          { id: 'releves', label: L('Relevés mensuels','Monthly reports'), icon: FileText },
+          { id: 'visiteurs', label: L('Visiteurs & accompagnants','Visitors & companions'), icon: Contact },
+          { id: 'badges', label: L('Badges employés','Staff badges'), icon: Contact },
         ] as const).map((tb) => (
           <button key={tb.id} onClick={() => setTab(tb.id)}
             className={'flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ' + (tab === tb.id ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-700')}>
@@ -230,11 +237,12 @@ export default function PointagePage() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            Mise à jour automatique · {new Date(tick).toLocaleTimeString('fr-FR')}
+            {L('Mise à jour automatique','Auto refresh')} · {new Date(tick).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR')}
           </div>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             {(['employe', 'accompagnant', 'visiteur'] as const).map((cat) => {
               const meta = CAT_META[cat];
+              const metaLabel = catLabel(cat, lang === 'en');
               const list = presents[cat];
               return (
                 <Card key={cat} className="overflow-hidden">
@@ -243,13 +251,13 @@ export default function PointagePage() {
                       <span className={'flex h-8 w-8 items-center justify-center rounded-lg ' + (cat === 'employe' ? 'bg-emerald-50 text-emerald-600' : cat === 'accompagnant' ? 'bg-amber-50 text-amber-600' : 'bg-purple-50 text-purple-600')}>
                         <meta.icon size={16} />
                       </span>
-                      <span className="text-sm font-semibold text-slate-700">{meta.label}</span>
+                      <span className="text-sm font-semibold text-slate-700">{metaLabel}</span>
                     </div>
                     <Badge tone={meta.tone}>{list.length}</Badge>
                   </div>
                   <div className="max-h-[28rem] divide-y divide-slate-50 overflow-y-auto">
                     {list.length === 0 ? (
-                      <div className="px-5 py-10 text-center text-sm text-slate-400">Aucun présent</div>
+                      <div className="px-5 py-10 text-center text-sm text-slate-400">{L('Aucun présent','Nobody on site')}</div>
                     ) : list.map(({ p, personne }) => (
                       <div key={personne.key} className="flex items-center gap-3 px-5 py-3">
                         <PersonAvatar p={personne} />
@@ -259,7 +267,7 @@ export default function PointagePage() {
                         </div>
                         <div className="text-right">
                           <div className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><LogIn size={12} /> {fmtHeure(p.horodatage)}</div>
-                          <div className="text-[11px] text-slate-400">depuis {depuis(p.horodatage, tick)}</div>
+                          <div className="text-[11px] text-slate-400">{L('depuis','for')} {depuis(p.horodatage, tick)}</div>
                         </div>
                       </div>
                     ))}
@@ -274,13 +282,13 @@ export default function PointagePage() {
       {/* ── Journal du jour ── */}
       {tab === 'journal' && (
         <Card>
-          <CardHeader title="Pointages du jour" subtitle={fmtDate(today)} />
+          <CardHeader title={L('Pointages du jour','Today\'s punches')} subtitle={fmtDate(today)} />
           {duJour.length === 0 ? (
-            <EmptyState icon={<ScanLine size={22} />} title="Aucun pointage aujourd'hui" hint="Ouvrez la borne pour que le personnel et les visiteurs badgent leurs entrées et sorties." />
+            <EmptyState icon={<ScanLine size={22} />} title={L('Aucun pointage aujourd\'hui','No punches today')} hint={L('Ouvrez la borne pour que le personnel et les visiteurs badgent leurs entrées et sorties.','Open the station so staff and visitors can badge in and out.')} />
           ) : (
             <Table>
               <thead className="border-b border-slate-100 bg-slate-50/60">
-                <tr><Th>Heure</Th><Th>Personne</Th><Th>Catégorie</Th><Th>Type</Th><Th>Méthode</Th>{editable && <Th className="text-right">Actions</Th>}</tr>
+                <tr><Th>{L('Heure','Time')}</Th><Th>{L('Personne','Person')}</Th><Th>{L('Catégorie','Category')}</Th><Th>{L('Type','Type')}</Th><Th>{L('Méthode','Method')}</Th>{editable && <Th className="text-right">{L('Actions','Actions')}</Th>}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {duJour.slice().sort((a, b) => b.horodatage.localeCompare(a.horodatage)).map((p) => {
@@ -297,13 +305,13 @@ export default function PointagePage() {
                           </div>
                         </div>
                       </Td>
-                      <Td><Badge tone={CAT_META[p.categorie].tone}>{p.categorie === 'employe' ? 'Employé' : p.categorie === 'accompagnant' ? 'Accompagnant' : 'Visiteur'}</Badge></Td>
-                      <Td>{p.type === 'entree' ? <Badge tone="green">Entrée</Badge> : <Badge tone="slate">Sortie</Badge>}</Td>
-                      <Td className="text-slate-500">{p.methode === 'qr' ? 'Badge QR' : 'Saisie manuelle'}</Td>
+                      <Td><Badge tone={CAT_META[p.categorie].tone}>{catLabelSing(p.categorie, lang === 'en')}</Badge></Td>
+                      <Td>{p.type === 'entree' ? <Badge tone="green">{L('Entrée','In')}</Badge> : <Badge tone="slate">{L('Sortie','Out')}</Badge>}</Td>
+                      <Td className="text-slate-500">{p.methode === 'qr' ? L('Badge QR','QR badge') : L('Saisie manuelle','Manual entry')}</Td>
                       {editable && (
                         <Td>
                           <div className="flex justify-end">
-                            <button title="Supprimer ce pointage" onClick={() => setDelTarget(p)}
+                            <button title={L('Supprimer ce pointage','Delete this punch')} onClick={() => setDelTarget(p)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600">
                               <Trash2 size={15} />
                             </button>
@@ -323,8 +331,8 @@ export default function PointagePage() {
       {tab === 'releves' && (
         <Card>
           <CardHeader
-            title="Relevés mensuels du personnel"
-            subtitle="Jours travaillés, entrées/sorties et temps de présence par employé"
+            title={L('Relevés mensuels du personnel','Staff monthly reports')}
+            subtitle={L('Jours travaillés, entrées/sorties et temps de présence par employé','Days worked, in/out and presence time per employee')}
             action={
               <div className="flex items-center gap-2">
                 <Select value={mois} onChange={(e) => setMois(Number(e.target.value))} className="!w-36">
@@ -333,13 +341,13 @@ export default function PointagePage() {
                 <Select value={annee} onChange={(e) => setAnnee(Number(e.target.value))} className="!w-24">
                   {[annee - 2, annee - 1, annee, annee + 1].filter((v, i, a) => a.indexOf(v) === i).map((y) => <option key={y} value={y}>{y}</option>)}
                 </Select>
-                <Button size="sm" variant="secondary" onClick={exportReleveGlobal}><FileText size={15} /> Synthèse PDF</Button>
+                <Button size="sm" variant="secondary" onClick={exportReleveGlobal}><FileText size={15} /> {L('Synthèse PDF','Summary PDF')}</Button>
               </div>
             }
           />
           <Table>
             <thead className="border-b border-slate-100 bg-slate-50/60">
-              <tr><Th>Employé</Th><Th>Fonction</Th><Th>Jours travaillés</Th><Th>Temps de présence</Th><Th className="text-right">Relevé</Th></tr>
+              <tr><Th>{L('Employé','Employee')}</Th><Th>{L('Fonction','Role')}</Th><Th>{L('Jours travaillés','Days worked')}</Th><Th>{L('Temps de présence','Presence time')}</Th><Th className="text-right">{L('Relevé','Report')}</Th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {releves.map(({ s, jours, totalMs }) => (
@@ -376,8 +384,8 @@ export default function PointagePage() {
 
       <ConfirmDialog
         open={!!delTarget}
-        title="Supprimer ce pointage"
-        message={<span className="font-semibold text-slate-700">{delTarget && `${personneDe(delTarget)?.prenom ?? ''} ${personneDe(delTarget)?.nom ?? ''} — ${delTarget.type === 'entree' ? 'entrée' : 'sortie'} à ${fmtHeure(delTarget.horodatage)}`}</span>}
+        title={L('Supprimer ce pointage','Delete this punch')}
+        message={<span className="font-semibold text-slate-700">{delTarget && `${personneDe(delTarget)?.prenom ?? ''} ${personneDe(delTarget)?.nom ?? ''} — ${delTarget.type === 'entree' ? L('entrée','in') : L('sortie','out')} ${L('à','at')} ${fmtHeure(delTarget.horodatage)}`}</span>}
         onConfirm={() => delTarget && deletePointage(delTarget.id)}
         onClose={() => setDelTarget(null)}
       />
@@ -411,6 +419,8 @@ const emptyVis = { nom: '', prenom: '', categorie: 'accompagnant' as 'accompagna
 
 function VisiteursTab({ editable }: { editable: boolean }) {
   const { visiteurs, settings, addVisiteur, updateVisiteur, deleteVisiteur } = useStore();
+  const { lang } = useT();
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyVis });
   const [del, setDel] = useState<Visiteur | null>(null);
@@ -431,7 +441,7 @@ function VisiteursTab({ editable }: { editable: boolean }) {
   const uploadForm = async (file?: File | null) => {
     setError('');
     if (!file) return;
-    if (file.size > MAX_PHOTO) { setError('Photo trop volumineuse (max 1 Mo).'); return; }
+    if (file.size > MAX_PHOTO) { setError(L('Photo trop volumineuse (max 1 Mo).','Photo too large (max 1 MB).')); return; }
     set('photoUrl', await readFileAsDataURL(file));
   };
 
@@ -449,13 +459,13 @@ function VisiteursTab({ editable }: { editable: boolean }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">Créez une carte temporaire (accompagnant d'un patient ou visiteur) avec code QR de pointage, puis téléchargez-la.</p>
-        {editable && <Button onClick={() => { setForm({ ...emptyVis }); setOpen(true); }}><UserPlus size={16} /> Nouvelle carte</Button>}
+        <p className="text-sm text-slate-500">{L('Créez une carte temporaire (accompagnant d\'un patient ou visiteur) avec code QR de pointage, puis téléchargez-la.','Create a temporary card (patient companion or visitor) with a check-in QR code, then download it.')}</p>
+        {editable && <Button onClick={() => { setForm({ ...emptyVis }); setOpen(true); }}><UserPlus size={16} /> {L('Nouvelle carte','New card')}</Button>}
       </div>
       {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</div>}
 
       {visiteurs.length === 0 ? (
-        <EmptyState icon={<Contact size={22} />} title="Aucune carte visiteur" hint="Créez une carte pour un accompagnant ou un visiteur." />
+        <EmptyState icon={<Contact size={22} />} title={L('Aucune carte visiteur','No visitor card')} hint={L('Créez une carte pour un accompagnant ou un visiteur.','Create a card for a companion or a visitor.')} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visiteurs.map((v) => {
@@ -465,7 +475,7 @@ function VisiteursTab({ editable }: { editable: boolean }) {
                 <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
                   <div className={'px-3 py-1.5 ' + accent}>
                     <div className="text-[11px] font-bold text-white">{settings.nom}</div>
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-white/80">{v.categorie === 'accompagnant' ? 'Accompagnant' : 'Visiteur'}</div>
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-white/80">{v.categorie === 'accompagnant' ? L('Accompagnant','Companion') : L('Visiteur','Visitor')}</div>
                   </div>
                   <div className="flex items-center gap-3 bg-white p-3">
                     {v.photoUrl ? (
@@ -485,14 +495,14 @@ function VisiteursTab({ editable }: { editable: boolean }) {
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <Button size="sm" className="flex-1" onClick={() => downloadVisiteurBadgePDF(v, settings)}><Contact size={14} /> Carte PDF</Button>
+                  <Button size="sm" className="flex-1" onClick={() => downloadVisiteurBadgePDF(v, settings)}><Contact size={14} /> {L('Carte PDF','Card PDF')}</Button>
                   {editable && (
                     <>
-                      <button title={v.actif ? 'Révoquer la carte' : 'Réactiver'} onClick={() => updateVisiteur(v.id, { actif: !v.actif })}
+                      <button title={v.actif ? L('Révoquer la carte','Revoke card') : L('Réactiver','Reactivate')} onClick={() => updateVisiteur(v.id, { actif: !v.actif })}
                         className={'inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ' + (v.actif ? 'border-slate-200 bg-white text-slate-500 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600' : 'border-emerald-300 bg-emerald-50 text-emerald-600')}>
                         <Power size={15} />
                       </button>
-                      <button title="Supprimer" onClick={() => setDel(v)}
+                      <button title={L('Supprimer','Delete')} onClick={() => setDel(v)}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600">
                         <Trash2 size={15} />
                       </button>
@@ -505,32 +515,32 @@ function VisiteursTab({ editable }: { editable: boolean }) {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Nouvelle carte visiteur / accompagnant"
-        footer={<><Button variant="secondary" onClick={() => setOpen(false)}>Annuler</Button><Button onClick={submit}><Plus size={16} /> Créer la carte</Button></>}>
+      <Modal open={open} onClose={() => setOpen(false)} title={L('Nouvelle carte visiteur / accompagnant','New visitor / companion card')}
+        footer={<><Button variant="secondary" onClick={() => setOpen(false)}>{L('Annuler','Cancel')}</Button><Button onClick={submit}><Plus size={16} /> {L('Créer la carte','Create card')}</Button></>}>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Catégorie" className="col-span-2">
+          <Field label={L('Catégorie','Category')} className="col-span-2">
             <Select value={form.categorie} onChange={(e) => set('categorie', e.target.value)}>
-              <option value="accompagnant">Accompagnant d'un patient</option>
-              <option value="visiteur">Visiteur</option>
+              <option value="accompagnant">{L("Accompagnant d'un patient",'Patient companion')}</option>
+              <option value="visiteur">{L('Visiteur','Visitor')}</option>
             </Select>
           </Field>
-          <Field label="Prénom"><Input value={form.prenom} onChange={(e) => set('prenom', e.target.value)} /></Field>
-          <Field label="Nom"><Input value={form.nom} onChange={(e) => set('nom', e.target.value)} /></Field>
+          <Field label={L('Prénom','First name')}><Input value={form.prenom} onChange={(e) => set('prenom', e.target.value)} /></Field>
+          <Field label={L('Nom','Last name')}><Input value={form.nom} onChange={(e) => set('nom', e.target.value)} /></Field>
           {form.categorie === 'accompagnant' && (
-            <Field label="Patient accompagné" className="col-span-2"><Input value={form.patientAccompagne} onChange={(e) => set('patientAccompagne', e.target.value)} placeholder="Nom du patient" /></Field>
+            <Field label={L('Patient accompagné','Patient accompanied')} className="col-span-2"><Input value={form.patientAccompagne} onChange={(e) => set('patientAccompagne', e.target.value)} placeholder={L('Nom du patient','Patient name')} /></Field>
           )}
-          <Field label="Motif de la visite" className="col-span-2"><Input value={form.motif} onChange={(e) => set('motif', e.target.value)} placeholder="Ex. accompagnement séance, rendez-vous…" /></Field>
-          <Field label="Téléphone"><Input value={form.telephone} onChange={(e) => set('telephone', e.target.value)} /></Field>
-          <Field label="Photo (optionnelle)">
+          <Field label={L('Motif de la visite','Reason for visit')} className="col-span-2"><Input value={form.motif} onChange={(e) => set('motif', e.target.value)} placeholder={L('Ex. accompagnement séance, rendez-vous…','E.g. session support, appointment…')} /></Field>
+          <Field label={L('Téléphone','Phone')}><Input value={form.telephone} onChange={(e) => set('telephone', e.target.value)} /></Field>
+          <Field label={L('Photo (optionnelle)','Photo (optional)')}>
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
-              <Upload size={15} /> {form.photoUrl ? 'Photo ajoutée' : 'Téléverser'}
+              <Upload size={15} /> {form.photoUrl ? L('Photo ajoutée','Photo added') : L('Téléverser','Upload')}
               <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadForm(e.target.files?.[0])} />
             </label>
           </Field>
         </div>
       </Modal>
 
-      <ConfirmDialog open={!!del} title="Supprimer la carte" message={<span className="font-semibold text-slate-700">{del?.prenom} {del?.nom} ({del?.code})</span>}
+      <ConfirmDialog open={!!del} title={L('Supprimer la carte','Delete card')} message={<span className="font-semibold text-slate-700">{del?.prenom} {del?.nom} ({del?.code})</span>}
         onConfirm={() => del && deleteVisiteur(del.id)} onClose={() => setDel(null)} />
     </div>
   );
@@ -539,6 +549,8 @@ function VisiteursTab({ editable }: { editable: boolean }) {
 // ─── Onglet Badges employés ──────────────────────────────────────────────────
 function BadgesTab({ staff, editable, onPhoto }: { staff: Staff[]; editable: boolean; onPhoto: (id: string, url: string) => void }) {
   const { settings } = useStore();
+  const { lang } = useT();
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
   const [qrs, setQrs] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
 
@@ -555,13 +567,13 @@ function BadgesTab({ staff, editable, onPhoto }: { staff: Staff[]; editable: boo
   const upload = async (s: Staff, file?: File | null) => {
     setError('');
     if (!file) return;
-    if (file.size > MAX_PHOTO) { setError(`Photo trop volumineuse pour ${s.prenom} ${s.nom} (max 1 Mo).`); return; }
+    if (file.size > MAX_PHOTO) { setError(`${L('Photo trop volumineuse pour','Photo too large for')} ${s.prenom} ${s.nom} (max 1 Mo).`); return; }
     onPhoto(s.id, await readFileAsDataURL(file));
   };
 
   return (
     <div>
-      <p className="mb-4 text-sm text-slate-500">Ajoutez une photo d'identité puis téléchargez le badge (carte 85,6 × 54 mm) avec le code QR personnel de pointage.</p>
+      <p className="mb-4 text-sm text-slate-500">{L("Ajoutez une photo d'identité puis téléchargez le badge (carte 85,6 × 54 mm) avec le code QR personnel de pointage.",'Add an ID photo then download the badge (85.6 × 54 mm card) with the personal check-in QR code.')}</p>
       {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</div>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {staff.map((s) => (
@@ -569,7 +581,7 @@ function BadgesTab({ staff, editable, onPhoto }: { staff: Staff[]; editable: boo
             <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
               <div className="bg-brand-600 px-3 py-1.5">
                 <div className="text-[11px] font-bold text-white">{settings.nom}</div>
-                <div className="text-[8px] uppercase tracking-wider text-teal-100">Badge personnel — pointage</div>
+                <div className="text-[8px] uppercase tracking-wider text-teal-100">{L('Badge personnel — pointage','Staff badge — time clock')}</div>
               </div>
               <div className="flex items-center gap-3 bg-white p-3">
                 {s.photoUrl ? (
@@ -591,11 +603,11 @@ function BadgesTab({ staff, editable, onPhoto }: { staff: Staff[]; editable: boo
             <div className="mt-3 flex items-center gap-2">
               {editable && (
                 <label className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
-                  <Upload size={14} /> {s.photoUrl ? 'Changer la photo' : 'Ajouter une photo'}
+                  <Upload size={14} /> {s.photoUrl ? L('Changer la photo','Change photo') : L('Ajouter une photo','Add a photo')}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => upload(s, e.target.files?.[0])} />
                 </label>
               )}
-              <Button size="sm" className="flex-1" onClick={() => downloadBadgePDF(s, settings)}><Contact size={14} /> Badge PDF</Button>
+              <Button size="sm" className="flex-1" onClick={() => downloadBadgePDF(s, settings)}><Contact size={14} /> {L('Badge PDF','Badge PDF')}</Button>
             </div>
           </Card>
         ))}
@@ -615,6 +627,8 @@ function BorneKiosque({ staff, visiteurs, pointages, settings, onClose, onPointa
   onClose: () => void;
   onPointage: (evt: Omit<Pointage, 'id'>) => Pointage;
 }) {
+  const { lang } = useT();
+  const L = (fr: string, en: string) => (lang === 'en' ? en : fr);
   const [horloge, setHorloge] = useState(new Date());
   const [camState, setCamState] = useState<'starting' | 'on' | 'off'>('starting');
   const [splash, setSplash] = useState<Splash | null>(null);
@@ -669,7 +683,7 @@ function BorneKiosque({ staff, visiteurs, pointages, settings, onClose, onPointa
     if (s) return pointer(persDeStaff(s), methode);
     const v = visiteurs.find((x) => x.code.toLowerCase() === t);
     if (v) return pointer(persDeVis(v), methode);
-    montrerSplash({ error: 'Badge inconnu. Présentez une carte valide ou saisissez votre code.' });
+    montrerSplash({ error: L('Badge inconnu. Présentez une carte valide ou saisissez votre code.','Unknown badge. Present a valid card or type your code.') });
   };
 
   useEffect(() => {
@@ -717,7 +731,7 @@ function BorneKiosque({ staff, visiteurs, pointages, settings, onClose, onPointa
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600"><ScanLine size={22} /></span>
           <div>
             <div className="text-sm font-bold">{settings.nom}</div>
-            <div className="text-xs text-slate-400">Borne de pointage — personnel & visiteurs</div>
+            <div className="text-xs text-slate-400">{L('Borne de pointage — personnel & visiteurs','Time clock — staff & visitors')}</div>
           </div>
         </div>
         <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-slate-300 transition hover:bg-white/20"><X size={20} /></button>
@@ -738,7 +752,7 @@ function BorneKiosque({ staff, visiteurs, pointages, settings, onClose, onPointa
           {camState !== 'on' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-800 text-slate-400">
               {camState === 'starting' ? <Camera size={36} className="animate-pulse" /> : <CameraOff size={36} />}
-              <span className="text-sm">{camState === 'starting' ? 'Démarrage de la caméra…' : 'Caméra indisponible — utilisez la saisie manuelle'}</span>
+              <span className="text-sm">{camState === 'starting' ? L('Démarrage de la caméra…','Starting camera…') : L('Caméra indisponible — utilisez la saisie manuelle','Camera unavailable — use manual entry')}</span>
             </div>
           )}
           {camState === 'on' && (
@@ -748,17 +762,17 @@ function BorneKiosque({ staff, visiteurs, pointages, settings, onClose, onPointa
           )}
         </div>
         <p className="mt-3 flex items-center justify-center gap-2 text-center text-sm text-slate-400">
-          <QrCode size={16} /> Présentez le code QR de votre badge ou carte devant la caméra
+          <QrCode size={16} /> {L('Présentez le code QR de votre badge ou carte devant la caméra','Present your badge or card QR code to the camera')}
         </p>
         <div className="mt-4 flex items-center gap-2">
           <Input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitManuel()}
-            placeholder="Ou saisissez votre code (ex. INF-01 / VIS-0001)"
+            placeholder={L('Ou saisissez votre code (ex. INF-01 / VIS-0001)','Or type your code (e.g. INF-01 / VIS-0001)')}
             className="!border-white/20 !bg-white/10 text-white placeholder:text-slate-500" />
-          <Button onClick={submitManuel}>Valider</Button>
+          <Button onClick={submitManuel}>{L('Valider','Submit')}</Button>
         </div>
       </div>
 
-      <div className="pb-4 text-center text-xs text-slate-600">Un badgeage alterne automatiquement entrée puis sortie.</div>
+      <div className="pb-4 text-center text-xs text-slate-600">{L('Un badgeage alterne automatiquement entrée puis sortie.','Each scan alternates automatically between in and out.')}</div>
 
       {splash && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/85 p-6 backdrop-blur-sm">
@@ -775,10 +789,10 @@ function BorneKiosque({ staff, visiteurs, pointages, settings, onClose, onPointa
                 <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/15 text-2xl font-bold">{initials(splash.p.nom, splash.p.prenom)}</span>
               )}
               <div className="mt-3 text-xl font-bold">{splash.p.prenom} {splash.p.nom}</div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">{splash.p.categorie === 'employe' ? 'Employé' : splash.p.categorie === 'accompagnant' ? 'Accompagnant' : 'Visiteur'}</div>
+              <div className="text-xs uppercase tracking-wide text-slate-400">{catLabelSing(splash.p.categorie, lang === 'en')}</div>
               <div className={'mt-2 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ' + (splash.type === 'entree' ? 'bg-emerald-500/25 text-emerald-200' : 'bg-slate-500/25 text-slate-200')}>
                 {splash.type === 'entree' ? <LogIn size={16} /> : <LogOut size={16} />}
-                {splash.type === 'entree' ? 'Entrée enregistrée' : 'Sortie enregistrée'} à {splash.heure}
+                {splash.type === 'entree' ? L('Entrée enregistrée','Check-in recorded') : L('Sortie enregistrée','Check-out recorded')} {L('à','at')} {splash.heure}
               </div>
               <CheckCircle2 size={30} className={'mx-auto mt-4 ' + (splash.type === 'entree' ? 'text-emerald-400' : 'text-slate-300')} />
             </div>
