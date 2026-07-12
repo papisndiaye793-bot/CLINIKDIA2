@@ -22,7 +22,6 @@ import {
   Settings,
   Droplets,
   Bell,
-  Search,
   ChevronDown,
   LogOut,
   RefreshCw,
@@ -435,7 +434,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   const { t } = useT();
   const current = allNav.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)));
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between rounded-b-[1.5rem] border border-slate-200/80 bg-white px-4 shadow-sm md:px-6">
+    <header className="relative flex h-16 shrink-0 items-center justify-between rounded-b-[1.5rem] border border-slate-200/80 bg-white px-4 shadow-sm md:px-6">
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <button
           onClick={onMenu}
@@ -446,15 +445,11 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
         </button>
         <span className="font-semibold text-slate-800">{current ? t(current.navKey ?? `nav.${current.key}`) : 'ClinikDia'}</span>
       </div>
-      <div className="flex items-center gap-2 md:gap-3">
+      {/* Horloge centrée dans le bandeau */}
+      <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 sm:block">
         <LiveClock />
-        <div className="relative hidden md:block">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            placeholder={t('common.search')}
-            className="w-48 sm:w-56 lg:w-64 rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-4 text-sm outline-none transition focus:border-brand-400 focus:bg-white"
-          />
-        </div>
+      </div>
+      <div className="flex items-center gap-2 md:gap-3">
         <button className="relative rounded-2xl p-2 text-slate-500 transition hover:bg-slate-100">
           <Bell size={18} />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
