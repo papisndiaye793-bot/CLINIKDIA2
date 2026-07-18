@@ -1,16 +1,28 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
 # Contextes de déploiement
 [context.production]
-  environment = { VITE_API_BASE = "https://clinikdia-api.onrender.com" }
+  environment = { VITE_API_BASE = "" }
 
 [context.preview]
-  environment = { VITE_API_BASE = "https://clinikdia-api-staging.onrender.com" }
+  environment = { VITE_API_BASE = "" }
 
 [context.development]
   environment = { VITE_API_BASE = "http://localhost:3001" }
+
+# API Redirects — route to serverless functions
+[[redirects]]
+  from = "/api/auth/*"
+  to = "/.netlify/functions/auth:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/patients/*"
+  to = "/.netlify/functions/patients:splat"
+  status = 200
 
 # SPA fallback — react-router (createBrowserRouter) handles client-side routing
 [[redirects]]
