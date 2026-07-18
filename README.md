@@ -53,3 +53,4 @@ src/
 
 - Réinitialisation des données : **Paramètres → Réinitialiser les données**.
 - Pour repartir d'une base vierge, vider le `localStorage` (clé `clinikdia-store`).
+# CLINIKDIA2
