@@ -2,6 +2,16 @@
   command = "npm run build"
   publish = "dist"
 
+# Contextes de déploiement
+[context.production]
+  environment = { VITE_API_BASE = "https://clinikdia-api.onrender.com" }
+
+[context.preview]
+  environment = { VITE_API_BASE = "https://clinikdia-api-staging.onrender.com" }
+
+[context.development]
+  environment = { VITE_API_BASE = "http://localhost:3001" }
+
 # SPA fallback — react-router (createBrowserRouter) handles client-side routing
 [[redirects]]
   from = "/*"
