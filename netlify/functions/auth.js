@@ -1,36 +1,26 @@
-import type { Handler } from '@netlify/functions';
-import * as jwt from 'jsonwebtoken';
+const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = 'd5c15007d6bcbb990341ebc08cc3cac2923293002df9f4b85f561693981d9f75d576d4b04b1ca57b2cbc4378626e6830';
 
-interface User {
-  id: string;
-  email: string;
-  role: string;
-  permissions: string[];
-}
-
-// Mock user data
-const MOCK_USER: User = {
+const MOCK_USER = {
   id: '1',
   email: 'b.camara@clinikdia.sn',
   role: 'admin',
   permissions: ['all'],
 };
 
-const MOCK_PASSWORD = 'Admin1234';
+const MOCK_PASSWORD = 'Clinik2026';
 
-export const handler: Handler = async (event) => {
+const headers = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+exports.handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/auth', '');
   const method = event.httpMethod;
-
-  // Set CORS headers
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
 
   // Handle preflight
   if (method === 'OPTIONS') {
@@ -86,7 +76,7 @@ export const handler: Handler = async (event) => {
           headers,
           body: JSON.stringify(MOCK_USER),
         };
-      } catch {
+      } catch (e) {
         return {
           statusCode: 401,
           headers,
@@ -110,6 +100,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ message: 'Not found' }),
     };
   } catch (error) {
+    console.error('Auth error:', error);
     return {
       statusCode: 500,
       headers,

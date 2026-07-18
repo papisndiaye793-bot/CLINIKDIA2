@@ -1,5 +1,3 @@
-import type { Handler } from '@netlify/functions';
-
 const MOCK_PATIENTS = [
   {
     id: '1',
@@ -42,17 +40,16 @@ const MOCK_PATIENTS = [
   },
 ];
 
-export const handler: Handler = async (event) => {
+const headers = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+exports.handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/patients', '');
   const method = event.httpMethod;
-
-  // Set CORS headers
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
 
   // Handle preflight
   if (method === 'OPTIONS') {
@@ -94,6 +91,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ message: 'Not found' }),
     };
   } catch (error) {
+    console.error('Patients error:', error);
     return {
       statusCode: 500,
       headers,

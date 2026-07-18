@@ -5,10 +5,10 @@
 
 # Contextes de déploiement
 [context.production]
-  environment = { VITE_API_BASE = "" }
+  environment = { VITE_API_BASE = "/api" }
 
 [context.preview]
-  environment = { VITE_API_BASE = "" }
+  environment = { VITE_API_BASE = "/api" }
 
 [context.development]
   environment = { VITE_API_BASE = "http://localhost:3001" }
